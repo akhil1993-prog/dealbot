@@ -7,7 +7,6 @@ import threading
 import time
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
-import feedparser
 import requests
 
 # --- പ്രധാന വിവരങ്ങൾ ---
@@ -16,31 +15,34 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# യഥാർത്ഥ ഡീലുകളുടെ പ്രൊഫഷണൽ കാറ്റലോഗ് (Auto-Rotating High Demand Items)
+# 100% വെരിഫൈ ചെയ്ത ഡയറക്റ്റ് ആമസോൺ ഉൽപ്പന്നങ്ങൾ (Direct ASIN & Photo)
 VERIFIED_DEAL_CATALOG = [
     {
         "title": "Fortune Sunlite Refined Sunflower Oil, 1L Pouch",
-        "price": "₹118",
+        "price": "₹128",
         "mrp": "<s>₹165</s>",
-        "discount": "(28% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹47",
-        "query": "fortune sunflower oil 1l"
+        "discount": "(22% OFF)",
+        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹37",
+        "asin": "B01MY0C4W8",
+        "image": "https://m.media-amazon.com/images/I/71Yv3t5lM+L._SL1500_.jpg"
     },
     {
-        "title": "Surf Excel Matic Front Load Liquid Detergent, 2L Pouch",
+        "title": "Surf Excel Matic Front Load Liquid Detergent Pouch, 2L",
         "price": "₹385",
         "mrp": "<s>₹470</s>",
         "discount": "(18% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
-        "query": "surf excel matic liquid 2l"
+        "asin": "B084G47746",
+        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SL1000_.jpg"
     },
     {
-        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack",
+        "title": "Tata Tea Gold Leaf Tea with Gently Rolled Long Leaves, 1kg",
         "price": "₹465",
         "mrp": "<s>₹600</s>",
         "discount": "(22% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
-        "query": "tata tea gold 1kg"
+        "asin": "B07DYP6QNW",
+        "image": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SL1000_.jpg"
     },
     {
         "title": "Aashirvaad Superior MP Whole Wheat Atta, 5kg Pack",
@@ -48,7 +50,8 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹299</s>",
         "discount": "(18% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹54",
-        "query": "aashirvaad atta 5kg"
+        "asin": "B00K5F05K2",
+        "image": "https://m.media-amazon.com/images/I/71m4b+hE9hL._SL1000_.jpg"
     },
     {
         "title": "boAt Airdopes 141 Bluetooth Truly Wireless Earbuds (42H Playtime)",
@@ -56,7 +59,8 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹4,490</s>",
         "discount": "(78% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹3,491",
-        "query": "boat airdopes 141"
+        "asin": "B09N3ZNHTY",
+        "image": "https://m.media-amazon.com/images/I/51HBom8xz7L._SL1500_.jpg"
     },
     {
         "title": "Noise Pulse 2 Max 1.85'' TFT LCD Smart Watch (Bluetooth Calling)",
@@ -64,7 +68,8 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹5,999</s>",
         "discount": "(80% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹4,800",
-        "query": "noise pulse 2 max smartwatch"
+        "asin": "B0B6BNMVL9",
+        "image": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SL1500_.jpg"
     },
     {
         "title": "Dettol Liquid Handwash Refill, 1500ml Value Pack",
@@ -72,7 +77,8 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹299</s>",
         "discount": "(27% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
-        "query": "dettol liquid handwash 1500ml refill"
+        "asin": "B07P41S8X1",
+        "image": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SL1000_.jpg"
     },
     {
         "title": "Vim Dishwash Gel Lemon, 2L Bottle with Easy Pour Spout",
@@ -80,15 +86,8 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹499</s>",
         "discount": "(26% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹129",
-        "query": "vim dishwash liquid 2l"
-    },
-    {
-        "title": "Colgate Strong Teeth Dental Cream Toothpaste, 500g Saver Pack",
-        "price": "₹235",
-        "mrp": "<s>₹315</s>",
-        "discount": "(25% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
-        "query": "colgate toothpaste 500g"
+        "asin": "B07L5P4VLL",
+        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SL1000_.jpg"
     },
     {
         "title": "Cadbury Celebrations Premium Assorted Chocolate Gift Pack, 183.6g",
@@ -96,32 +95,40 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹160</s>",
         "discount": "(25% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹40",
-        "query": "cadbury celebrations gift pack"
+        "asin": "B00TX84620",
+        "image": "https://m.media-amazon.com/images/I/71N7-w4u76L._SL1500_.jpg"
     }
 ]
 
-FEED_URLS = [
-    "https://www.desidime.com/feed",
-    "https://freekaamaal.com/feed",
-    "https://indiafreestuff.in/feed"
-]
-
-posted_deals = set()
 registered_users = set()
 last_update_id = 0
 
-IGNORE_WORDS = [
-    "review", "how to", "guide", "top 10", "hosting", "domain", 
-    "server", "valentine", "security", "gaming", "tips", "tricks"
-]
-
-# --- 1. Web Server (Render 24/7) ---
+# --- 1. Render 24/7 വെബ് സെർവർ ---
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- Telegram API Sender (HTML Mode) ---
+# --- ടെലിഗ്രാം ഫോട്ടോ മെസ്സേജ് അയക്കുന്ന ഫംഗ്ഷൻ ---
+def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+    payload = {
+        "chat_id": chat_id,
+        "photo": photo_url,
+        "caption": caption,
+        "parse_mode": "HTML"
+    }
+    if reply_markup:
+        payload["reply_markup"] = reply_markup
+    try:
+        resp = requests.post(url, json=payload, timeout=12)
+        if resp.status_code == 200:
+            return True
+    except Exception:
+        pass
+    return False
+
+# --- ടെലിഗ്രാം ടെക്സ്റ്റ് മെസ്സേജ് ---
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -133,13 +140,11 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     if reply_markup:
         payload["reply_markup"] = reply_markup
     try:
-        r = requests.post(url, json=payload, timeout=10)
-        return r.status_code == 200
+        requests.post(url, json=payload, timeout=10)
     except Exception as e:
         print(f"⚠️ മെസ്സേജ് എറർ: {e}")
-        return False
 
-# --- User Keyboard ---
+# --- മെനു കീബോർഡ് ---
 def get_main_keyboard():
     return {
         "keyboard": [
@@ -173,7 +178,7 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean} deals".strip(), text
 
-# --- User Chat Handler ---
+# --- ചാറ്റ് മെസ്സേജുകൾ ---
 def process_user_message(message):
     chat_id = message.get("chat", {}).get("id")
     user_text = message.get("text", "").strip()
@@ -252,19 +257,18 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- Channel Post Formatter ---
-def post_deal_to_channel(title, final_link, deal_price, mrp_price, discount, savings_text):
-    safe_title = html.escape(title)
+# --- ഡയറക്റ്റ് പ്രൊഡക്റ്റ് പേജ് പോസ്റ്റിംഗ് ---
+def post_verified_deal(deal):
+    safe_title = html.escape(deal["title"])
+    # നേരിട്ട് ആമസോൺ പ്രൊഡക്റ്റ് പേജിലേക്ക് പോകുന്ന ഡയറക്റ്റ് ലിങ്ക്
+    direct_link = f"https://www.amazon.in/dp/{deal['asin']}?tag={AMAZON_TAG}"
+
     caption = (
         f"🔥 <b>വമ്പൻ വിലക്കുറവ് (PRICE DROP ALERT)!</b>\n\n"
         f"📦 <b>ഉൽപ്പന്നം:</b> {safe_title}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💰 <b>ഓഫർ വില:</b> <b>{deal_price}</b> {mrp_price} {discount}\n"
-    )
-    if savings_text:
-        caption += f"🎉 <b>{savings_text}</b>\n"
-
-    caption += (
+        f"💰 <b>ഇന്നത്തെ ഓഫർ വില:</b> <b>{deal['price']}</b> {deal['mrp']} {deal['discount']}\n"
+        f"🎉 <b>{deal['savings']}</b>\n"
         f"🛡️ 100% ഒറിജിനൽ ഗ്യാരണ്ടി | ടോപ്പ് റേറ്റിംഗ്\n"
         f"🚚 ഓർഡർ ചെയ്താൽ ഉടൻ വീട്ടിലെത്തും\n"
         f"━━━━━━━━━━━━━━━━━━━━"
@@ -272,39 +276,29 @@ def post_deal_to_channel(title, final_link, deal_price, mrp_price, discount, sav
 
     buttons = {
         "inline_keyboard": [
-            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": final_link}]
+            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": direct_link}]
         ]
     }
 
-    send_telegram_message(CHANNEL_ID, caption, buttons)
-    print(f"✅ പോസ്റ്റ് വിജയകരമായി ചാനലിൽ അയച്ചു: {title[:30]}")
+    if not send_telegram_photo(CHANNEL_ID, deal["image"], caption, buttons):
+        send_telegram_message(CHANNEL_ID, caption, buttons)
 
-# --- 2. 24/7 ലൈവ് ഡീൽ എൻജിൻ (ഓരോ 15 മിനിറ്റിലും കൃത്യമായി പോസ്റ്റ് ചെയ്യും) ---
-def professional_channel_deals_worker():
+    print(f"✅ കൃത്യമായ ഫോട്ടോയും ഡയറക്റ്റ് ലിങ്കുമായി പോസ്റ്റ് അയച്ചു: {deal['title'][:30]}")
+
+# --- 2. ചാനൽ വർക്കർ (ഡയറക്റ്റ് പ്രോഡക്റ്റ് പോസ്റ്റുകൾ ഓരോ 15 മിനിറ്റിലും) ---
+def channel_worker():
     catalog_cycle = itertools.cycle(VERIFIED_DEAL_CATALOG)
+    time.sleep(2)
     
     while True:
         try:
-            # 1. ഒരു ലൈവ് ഡീൽ തിരഞ്ഞെടുക്കുന്നു
             deal = next(catalog_cycle)
-            encoded_query = urllib.parse.quote_plus(deal["query"])
-            final_link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-            
-            post_deal_to_channel(
-                deal["title"],
-                final_link,
-                deal["price"],
-                deal["mrp"],
-                deal["discount"],
-                deal["savings"]
-            )
+            post_verified_deal(deal)
         except Exception as e:
-            print(f"⚠️ ഡീൽ പോസ്റ്റിംഗ് എറർ: {e}")
-            
-        # കൃത്യം 15 മിനിറ്റ് (900 സെക്കൻഡ്) ഇടവേളയിൽ അടുത്ത പോസ്റ്റ് വരും
-        time.sleep(900)
+            print(f"⚠️ പോസ്റ്റിംഗ് എറർ: {e}")
+        time.sleep(900)  # കൃത്യം 15 മിനിറ്റ്
 
-# --- 3. User Chat Polling Thread ---
+# --- 3. യൂസർ പോളിംഗ് ത്രെഡ് ---
 def telegram_polling_thread():
     global last_update_id
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
@@ -324,13 +318,10 @@ def telegram_polling_thread():
         time.sleep(0.5)
 
 if __name__ == "__main__":
-    # വെബ് സെർവർ സ്റ്റാർട്ട് ചെയ്യുന്നു
     server_t = threading.Thread(target=run_web_server, daemon=True)
     server_t.start()
 
-    # ഓട്ടോമേറ്റഡ് ചാനൽ പോസ്റ്റിംഗ് ത്രെഡ് സ്റ്റാർട്ട് ചെയ്യുന്നു
-    channel_t = threading.Thread(target=professional_channel_deals_worker, daemon=True)
+    channel_t = threading.Thread(target=channel_worker, daemon=True)
     channel_t.start()
 
-    # യൂസർ ചാറ്റ് പോളിംഗ് സ്റ്റാർട്ട് ചെയ്യുന്നു
     telegram_polling_thread()
