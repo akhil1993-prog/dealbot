@@ -41,7 +41,7 @@ registered_users = set()
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# --- വിശ്വസനീയമായ ബ്രാൻഡുകളുടെ ഫിൽട്ടർ ---
+# --- ക്വാളിറ്റി ഫിൽട്ടർ ---
 TRUSTED_KEYWORDS = [
     "oil", "sugar", "tea", "soap", "surf", "detergent", "shampoo", "toothpaste",
     "rice", "ghee", "fortune", "tata", "dettol", "vim", "ariel", "colgate",
@@ -54,14 +54,26 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- മലയാളം മെനു ---
+# --- മെനു കീബോർഡ് ---
 def get_daily_essential_keyboard():
     keyboard = [
         [KeyboardButton("🛒 നിത്യോപയോഗ സാധനങ്ങൾ (പലചരക്ക്)"), KeyboardButton("🧼 ക്ലീനിംഗ് & സോപ്പുകൾ")],
         [KeyboardButton("☕ ചായപ്പൊടി & പലഹാരങ്ങൾ"), KeyboardButton("🧴 പേഴ്സണൽ കെയർ & ഷാംപൂ")],
-        [KeyboardButton("📱 മൊബൈൽ & ഇലക്ട്രോണിക്സ്"), KeyboardButton("🔥 ഇന്നത്തെ വമ്പൻ പ്രൈസ് ഡ്രോപ്പുകൾ")]
+        [KeyboardButton("📱 മൊബൈൽ & ഇലക്ട്രോണിക്സ്"), KeyboardButton("🔥 ഇന്നത്തെ വമ്പൻ പ്രൈസ് ഡ്രോപ്പുകൾ")],
+        [KeyboardButton("📉 പ്രൈസ് ട്രാക്കർ (വില ഹിസ്റ്ററി പരിശോധിക്കാൻ)")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+# --- ആമസോൺ ലിങ്കിൽ നിന്ന് ASIN തിരിച്ചറിയൽ ---
+def extract_asin(url):
+    pattern = r'(?:/dp/|/gp/product/|/d/|/ASIN/|/product/)([A-Z0-9]{10})'
+    match = re.search(pattern, url)
+    if match:
+        return match.group(1)
+    short_pattern = r'amzn\.to/([a-zA-Z0-9]+)'
+    if re.search(short_pattern, url):
+        return "SHORT_LINK"
+    return None
 
 # --- സാധനങ്ങൾ തിരിച്ചറിയൽ ---
 def detect_category_and_query(text):
@@ -83,17 +95,19 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean} deals".strip(), text
 
-# --- ചാറ്റ് ഹാൻഡ്‌ലർ ---
+# --- ചാറ്റ് ഹാൻഡ്‌ലർ & പ്രൈസ് ട്രാക്കർ ---
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user:
         registered_users.add(update.effective_user.id)
 
     user_text = update.message.text.strip()
 
+    # /start സ്വാഗതം
     if user_text == "/start":
         welcome_text = (
-            "🙏 *നമസ്കാരം! Prime Finder സേവിംഗ്സ് അസിസ്റ്റന്റിലേക്ക് സ്വാഗതം.*\n\n"
-            "സൂപ്പർമാർക്കറ്റുകളേക്കാൾ കുറഞ്ഞ വിലയിൽ സാധനങ്ങളും വലിയ വിലക്കുറവുകളും (Price Drops) കണ്ടെത്താൻ താഴെയുള്ള മെനു ഉപയോഗിക്കുക 👇"
+            "🙏 *നമസ്കാരം! Prime Finder സേവിംഗ്സ് & പ്രൈസ് ട്രാക്കറിലേക്ക് സ്വാഗതം.*\n\n"
+            "• നിത്യോപയോഗ സാധനങ്ങൾ വിലക്കുറവിൽ കണ്ടെത്താൻ താഴെയുള്ള മെനു ഉപയോഗിക്കുക.\n"
+            "• ഏതെങ്കിലും ഒരു സാധനത്തിന്റെ കഴിഞ്ഞ മാസങ്ങളിലെ ഏറ്റവും കുറഞ്ഞ വില അറിയാൻ **ആമസോൺ ലിങ്ക് ഇവിടെ അയക്കുക!**"
         )
         await update.message.reply_text(
             welcome_text,
@@ -102,6 +116,47 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # പ്രൈസ് ട്രാക്കർ നിർദ്ദേശം
+    if "പ്രൈസ് ട്രാക്കർ" in user_text:
+        help_msg = (
+            "📉 *ആമസോൺ പ്രൈസ് ട്രാക്കർ ഉപയോഗിക്കേണ്ട വിധം:*\n\n"
+            "1. ആമസോണിൽ നിങ്ങൾ വാങ്ങാൻ ഉദ്ദേശിക്കുന്ന സാധനത്തിന്റെ **ലിങ്ക് (Share Link)** കോപ്പി ചെയ്യുക.\n"
+            "2. ആ ലിങ്ക് ഈ ചാറ്റിലേക്ക് പേസ്റ്റ് ചെയ്ത് അയക്കുക.\n"
+            "3. ബോട്ട് ഉടൻ തന്നെ ആ സാധനത്തിന്റെ കഴിഞ്ഞ മാസങ്ങളിലെ ഏറ്റവും കുറഞ്ഞ വില പരിശോധിക്കാനുള്ള വിവരങ്ങൾ നൽകും!"
+        )
+        await update.message.reply_text(help_msg, parse_mode="Markdown")
+        return
+
+    # ഉപയോക്താവ് ലിങ്ക് അയച്ചാൽ (Live Price Tracking)
+    if "amazon.in" in user_text or "amzn.to" in user_text:
+        asin = extract_asin(user_text)
+        clean_url = user_text.split('?')[0] if '?' in user_text else user_text
+        buy_url = f"{clean_url}?tag={AMAZON_TAG}" if "amazon.in" in clean_url else clean_url
+
+        price_history_url = f"https://pricehistoryapp.com/search?q={urllib.parse.quote_plus(user_text)}"
+        if asin and asin != "SHORT_LINK":
+            price_history_url = f"https://pricehistoryapp.com/product/{asin}"
+
+        tracker_buttons = [
+            [InlineKeyboardButton("📊 മുൻകാല വില പരിശോധിക്കുക (Price History)", url=price_history_url)],
+            [InlineKeyboardButton("🛒 Amazon-ൽ മികച്ച ഓഫറിൽ വാങ്ങുക", url=buy_url)]
+        ]
+
+        tracker_msg = (
+            "🔍 *ആമസോൺ ഉൽപ്പന്നം വിജയകരമായി ട്രാക്ക് ചെയ്തു!*\n\n"
+            "━━━━━━━━━━━━━━━━━━━━\n"
+            "💡 *സ്മാർട്ട് ഷോപ്പിംഗ് ടിപ്പ്:*\n"
+            "ഇന്നത്തെ ഓഫർ വില യഥാർത്ഥത്തിൽ കുറവാണോ അതോ വില കൂട്ടി ഓഫർ നൽകിയതാണോ എന്നറിയാൻ താഴെയുള്ള ബട്ടണിൽ ക്ലിക്ക് ചെയ്ത് **Price History Graph** പരിശോധിക്കാവുന്നതാണ്.\n"
+            "━━━━━━━━━━━━━━━━━━━━"
+        )
+        await update.message.reply_text(
+            tracker_msg,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup(tracker_buttons)
+        )
+        return
+
+    # കാറ്റഗറി തിരയൽ
     cat_type, search_query, display_name = detect_category_and_query(user_text)
     encoded = urllib.parse.quote_plus(search_query)
 
@@ -132,7 +187,7 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(buttons)
     )
 
-# --- പ്രൈസ് ഡ്രോപ്പ് എഞ്ചിൻ (Price Drop Calculation) ---
+# --- പ്രൈസ് ഡ്രോപ്പ് എഞ്ചിൻ ---
 def extract_deal_info(entry):
     raw_title = getattr(entry, 'title', '')
     clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
@@ -155,7 +210,6 @@ def extract_deal_info(entry):
         if img_match:
             image_url = img_match.group(1)
 
-    # സംഖ്യകൾ വേർതിരിച്ച് വില കണക്കുകൂട്ടുന്നു
     prices = [int(p.replace(',', '')) for p in re.findall(r'(?:Rs\.?|INR|₹)\s?(\d+[\d,]*)', content, re.IGNORECASE)]
     discount_match = re.search(r'(\d+)%\s*off', content, re.IGNORECASE)
 
@@ -165,7 +219,6 @@ def extract_deal_info(entry):
     deal_price = f"₹{deal_price_num}" if deal_price_num > 0 else "പ്രത്യേക ഓഫർ വില"
     mrp_price = f"~~₹{mrp_num}~~" if (mrp_num > deal_price_num and deal_price_num > 0) else ""
 
-    # ലാഭത്തിന്റെ തുക
     savings_text = ""
     if mrp_num > deal_price_num and deal_price_num > 0:
         savings = mrp_num - deal_price_num
@@ -180,7 +233,7 @@ def extract_deal_info(entry):
 
     return clean_title, final_link, "Amazon", image_url, deal_price, mrp_price, discount, savings_text
 
-# --- പ്രൈസ് ഡ്രോപ്പ് അലർട്ടോടെ ചാനൽ പോസ്റ്റിംഗ് ---
+# --- ചാനൽ പോസ്റ്റിംഗ് ---
 async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url, deal_price, mrp_price, discount, savings_text):
     try:
         caption = (
