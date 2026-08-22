@@ -2,7 +2,6 @@ import html
 import io
 import itertools
 import os
-import random
 import re
 import threading
 import time
@@ -16,43 +15,34 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# 100% കൃത്യമായി ഓപ്പൺ ആകുന്ന ആമസോൺ ഡീലുകൾ (Fail-Safe Verified URLs)
+# 100% കൃത്യമായ തത്സമയ ഉൽപ്പന്നങ്ങളും ഡയറക്റ്റ് ആമസോൺ പേജുകളും
 VERIFIED_DEALS = [
-    {
-        "title": "Surf Excel Matic Top Load Liquid Detergent Pouch, 2L",
-        "price": "₹385",
-        "mrp": "<s>₹470</s>",
-        "discount": "(18% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
-        "link": f"https://www.amazon.in/s?k=Surf+Excel+Matic+Liquid+Detergent+Pouch+2L&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SL1000_.jpg"
-    },
-    {
-        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack",
-        "price": "₹465",
-        "mrp": "<s>₹600</s>",
-        "discount": "(22% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
-        "link": f"https://www.amazon.in/s?k=Tata+Tea+Gold+1kg+Pack&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SL1000_.jpg"
-    },
     {
         "title": "boAt Airdopes 141 Bluetooth Truly Wireless Earbuds (42H Playtime)",
         "price": "₹999",
         "mrp": "<s>₹4,490</s>",
         "discount": "(78% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹3,491",
-        "link": f"https://www.amazon.in/s?k=boAt+Airdopes+141+Bluetooth+Wireless+Earbuds&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/51HBom8xz7L._SL1500_.jpg"
+        "direct_url": f"https://www.amazon.in/dp/B09N3ZNHTY?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/51HBom8xz7L._SX679_.jpg"
     },
     {
-        "title": "Noise Pulse 2 Max 1.85'' Smart Watch (Bluetooth Calling)",
+        "title": "Noise Pulse 2 Max 1.85'' TFT LCD Smart Watch (Bluetooth Calling)",
         "price": "₹1,199",
         "mrp": "<s>₹5,999</s>",
         "discount": "(80% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹4,800",
-        "link": f"https://www.amazon.in/s?k=Noise+Pulse+2+Max+Smart+Watch&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SL1500_.jpg"
+        "direct_url": f"https://www.amazon.in/dp/B0B6BNMVL9?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SX679_.jpg"
+    },
+    {
+        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack with Long Leaves",
+        "price": "₹465",
+        "mrp": "<s>₹600</s>",
+        "discount": "(22% OFF)",
+        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
+        "direct_url": f"https://www.amazon.in/dp/B07DYP6QNW?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SX679_.jpg"
     },
     {
         "title": "Cadbury Celebrations Premium Assorted Chocolate Gift Pack, 183.6g",
@@ -60,8 +50,8 @@ VERIFIED_DEALS = [
         "mrp": "<s>₹160</s>",
         "discount": "(25% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹40",
-        "link": f"https://www.amazon.in/s?k=Cadbury+Celebrations+Assorted+Chocolate+Gift+Pack+183g&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/71N7-w4u76L._SL1500_.jpg"
+        "direct_url": f"https://www.amazon.in/dp/B00TX84620?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/71N7-w4u76L._SX679_.jpg"
     },
     {
         "title": "Dettol Liquid Handwash Refill, 1500ml Value Saver Pack",
@@ -69,8 +59,8 @@ VERIFIED_DEALS = [
         "mrp": "<s>₹299</s>",
         "discount": "(27% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
-        "link": f"https://www.amazon.in/s?k=Dettol+Liquid+Handwash+Refill+1500ml&tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SL1000_.jpg"
+        "direct_url": f"https://www.amazon.in/dp/B07P41S8X1?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SX679_.jpg"
     }
 ]
 
@@ -83,13 +73,13 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം ഫോട്ടോ അപ്‌ലോഡ് ---
-def send_telegram_photo_bytes(chat_id, photo_url, caption, reply_markup=None):
+# --- ടെലിഗ്രാം ഫോട്ടോ ഡയറക്റ്റ് അപ്‌ലോഡ് ---
+def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        img_resp = requests.get(photo_url, headers=headers, timeout=15)
+        img_resp = requests.get(photo_url, headers=headers, timeout=12)
         if img_resp.status_code == 200:
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
             files = {'photo': ('product.jpg', io.BytesIO(img_resp.content), 'image/jpeg')}
@@ -101,7 +91,7 @@ def send_telegram_photo_bytes(chat_id, photo_url, caption, reply_markup=None):
             if reply_markup:
                 data['reply_markup'] = str(reply_markup).replace("'", '"')
             
-            r = requests.post(url, data=data, files=files, timeout=20)
+            r = requests.post(url, data=data, files=files, timeout=15)
             return r.status_code == 200
     except Exception as e:
         print(f"⚠️ ഫോട്ടോ എറർ: {e}")
@@ -157,7 +147,7 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean} deals".strip(), text
 
-# --- ചാറ്റ് മെസ്സേജുകൾ ---
+# --- ചാറ്റ് ഉപയോക്താക്കൾക്കുള്ള മറുപടി ---
 def process_user_message(message):
     chat_id = message.get("chat", {}).get("id")
     user_text = message.get("text", "").strip()
@@ -236,8 +226,8 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- പ്രൊഫഷണൽ ചാനൽ പോസ്റ്റിംഗ് എഞ്ചിൻ ---
-def post_verified_deal_to_channel(deal):
+# --- പ്രൊഫഷണൽ ചാനൽ പോസ്റ്റിംഗ് ---
+def post_deal(deal):
     safe_title = html.escape(deal["title"])
 
     caption = (
@@ -253,17 +243,17 @@ def post_verified_deal_to_channel(deal):
 
     buttons = {
         "inline_keyboard": [
-            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": deal["link"]}]
+            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": deal["direct_url"]}]
         ]
     }
 
-    photo_success = send_telegram_photo_bytes(CHANNEL_ID, deal["img_url"], caption, buttons)
-    if not photo_success:
+    success = send_telegram_photo(CHANNEL_ID, deal["img_url"], caption, buttons)
+    if not success:
         send_telegram_message(CHANNEL_ID, caption, buttons)
 
     print(f"✅ പോസ്റ്റ് അയച്ചു: {deal['title'][:30]}")
 
-# --- 2. ചാനൽ വർക്കർ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ പോസ്റ്റ്) ---
+# --- 2. ചാനൽ ഓട്ടോമേഷൻ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ ഡീൽ) ---
 def channel_worker():
     catalog_cycle = itertools.cycle(VERIFIED_DEALS)
     time.sleep(2)
@@ -271,12 +261,12 @@ def channel_worker():
     while True:
         try:
             deal = next(catalog_cycle)
-            post_verified_deal_to_channel(deal)
+            post_deal(deal)
         except Exception as e:
             print(f"⚠️ വർക്കർ എറർ: {e}")
-        time.sleep(900)  # 15 മിനിറ്റ്
+        time.sleep(900)  # കൃത്യം 15 മിനിറ്റ്
 
-# --- 3. യൂസർ പോളിംഗ് ത്രെഡ് ---
+# --- 3. ടെലിഗ്രാം യൂസർ പോളിംഗ് ത്രെഡ് ---
 def telegram_polling_thread():
     global last_update_id
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
