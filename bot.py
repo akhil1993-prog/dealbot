@@ -31,52 +31,37 @@ def run_web_server():
     server.serve_forever()
 
 
-# മലയാളം / മംഗ്ലീഷ് വാക്കുകളെ കൃത്യമായ ഇംഗ്ലീഷ് ആമസോൺ കീവേഡുകളാക്കി മാറ്റുന്ന സ്മാർട്ട് ഫിൽട്ടർ
 def clean_and_translate_query(text):
     text_lower = text.lower()
-
-    # പ്രധാന ഇംഗ്ലീഷ് വാക്കുകൾ കണ്ടെത്തുന്നു
-    keywords = []
-
-    # ബഡ്ജറ്റ് കണ്ടെത്തൽ (ഉദാ: 15000, 10k)
     numbers = re.findall(r"\d+", text)
     budget = f"under {numbers[0]}" if numbers else ""
 
-    # കാറ്റഗറികൾ
     if any(
         w in text_lower
         for w in ["ഫോൺ", "phone", "mobile", "smart phone", "5g"]
     ):
-        keywords.append(f"5G Mobile {budget}".strip())
+        return f"5G Mobile {budget}".strip()
     elif any(
         w in text_lower
-        for w in [
-            "വാച്ച്",
-            "watch",
-            "smart watch",
-            "സ്മാർട്ട് വാച്ച്",
-        ]
+        for w in ["വാച്ച്", "watch", "smart watch", "സ്മാർട്ട് വാച്ച്"]
     ):
-        keywords.append(f"Smart Watch {budget}".strip())
+        return f"Smart Watch {budget}".strip()
     elif any(
         w in text_lower
         for w in ["ഇയർഫോൺ", "earbuds", "airpods", "headset", "earphones"]
     ):
-        keywords.append(f"Wireless Earbuds {budget}".strip())
+        return f"Wireless Earbuds {budget}".strip()
     elif any(w in text_lower for w in ["ഷൂ", "shoe", "shoes", "sneakers"]):
-        keywords.append(f"Shoes {budget}".strip())
+        return f"Shoes {budget}".strip()
     elif any(w in text_lower for w in ["ലാപ്‌ടോപ്പ്", "laptop"]):
-        keywords.append(f"Laptop {budget}".strip())
+        return f"Laptop {budget}".strip()
     elif any(w in text_lower for w in ["സ്പീക്കർ", "speaker", "soundbar"]):
-        keywords.append(f"Bluetooth Speaker {budget}".strip())
+        return f"Bluetooth Speaker {budget}".strip()
     elif any(w in text_lower for w in ["ട്രിമ്മർ", "trimmer", "shaver"]):
-        keywords.append(f"Trimmer {budget}".strip())
+        return f"Trimmer {budget}".strip()
     else:
-        # ഇംഗ്ലീഷ് അക്ഷരങ്ങൾ മാത്രമെടുക്കുന്നു
         eng_only = re.sub(r"[^a-zA-Z0-9\s]", "", text).strip()
-        keywords.append(eng_only if eng_only else "deals of the day")
-
-    return keywords[0]
+        return eng_only if eng_only else "best seller deals"
 
 
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -85,31 +70,31 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_text == "/start":
         await update.message.reply_text(
             "👋 *Prime Finder Smart Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "നിങ്ങൾക്ക് ആവശ്യമുള്ള ഏത് സാധനത്തിന്റെയും പേര് ഇവിടെ അയക്കൂ (ഉദാ: `15000 രൂപയിൽ താഴെ 5G ഫോൺ`, `smart watch`, `shoes`).\n\n"
+            "നിങ്ങൾക്ക് ആവശ്യമുള്ള സാധനത്തിന്റെ പേര് ഇവിടെ അയക്കൂ (ഉദാ: `15000 രൂപയിൽ താഴെ 5G ഫോൺ`, `smart watch`, `shoes`).\n\n"
             "4★+ റേറ്റിംഗുള്ള മികച്ച ഓഫറുകൾ ഞാൻ നൽകാം!",
             parse_mode="Markdown",
         )
         return
 
-    # ആമസോണിന് മനസ്സിലാകുന്ന കൃത്യമായ ഇംഗ്ലീഷ് കീവേഡ് ഉണ്ടാക്കുന്നു
     search_keyword = clean_and_translate_query(user_text)
     encoded_query = urllib.parse.quote_plus(search_keyword)
 
-    # ആമസോൺ 4★+ ലിങ്ക്
+    # 1. ആമസോൺ 4★+ റേറ്റിംഗ് ഫിൽട്ടർ ലിങ്ക്
     amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-    # ഫ്ലിപ്കാർട്ട് ലിങ്ക്
-    flipkart_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.flipkart.com/search?q={encoded_query}"
+
+    # 2. ഫ്ലിപ്കാർട്ട് ആപ്പ് / വെബ്സൈറ്റ് നേരിട്ട് ഓപ്പൺ ആകുന്ന ക്ലീൻ സെർച്ച് ലിങ്ക്
+    flipkart_direct_url = f"https://www.flipkart.com/search?q={encoded_query}&sort=popularity"
 
     reply_text = (
         f"🎯 *Prime Verified Deals Found!* \n"
         f"📦 *Product:* _{search_keyword}_\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"⭐ *Amazon Top Rated (4★+ Only):*\n"
+        f"🟠 *Amazon Top Rated (4★+ Only):*\n"
         f"👉 [Amazon-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({amazon_url})\n\n"
-        f"🔵 *Flipkart Verified Deals:*\n"
-        f"👉 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_url})\n"
+        f"🔵 *Flipkart Popular Results:*\n"
+        f"👉 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_direct_url})\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🛡️ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഈസി റിട്ടേൺ സൗകര്യവും!_"
+        f"🛡️ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഫാസ്റ്റ് ഡെലിവറിയും!_"
     )
 
     await update.message.reply_text(
@@ -125,13 +110,16 @@ def get_real_url_and_platform(text_or_url):
     if amz:
         clean = amz.group(0).split("?")[0]
         return f"{clean}?tag={AMAZON_TAG}", "Amazon"
+
     fk = re.search(r"https?://(?:www\.)?flipkart\.com/[^\s\"\'>]+", text_or_url)
     if fk:
         clean = fk.group(0).split("?")[0]
+        # സിംഗിൾ പ്രൊഡക്റ്റ് ലിങ്കുകൾ EarnKaro വഴി കൃത്യമായി വർക്ക് ചെയ്യും
         return (
             f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}",
             "Flipkart",
         )
+
     return None, None
 
 
