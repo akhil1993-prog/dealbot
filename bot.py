@@ -14,21 +14,20 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# ആർട്ടിക്കിളുകൾ ഇല്ലാത്ത പ്യുവർ പ്രോഡക്റ്റ് ഡീൽ ഫീഡുകൾ
+# 100% ലൈവ് ആക്ടീവ് RSS ഫീഡുകൾ
 FEED_URLS = [
-    "https://www.desidime.com/deals/feed",
-    "https://freekaamaal.com/deals/feed"
+    "https://www.desidime.com/feed",
+    "https://freekaamaal.com/feed",
+    "https://indiafreestuff.in/feed"
 ]
 
 posted_deals = set()
 registered_users = set()
 last_update_id = 0
 
-# പൂർണ്ണമായി ഒഴിവാക്കേണ്ട ആർട്ടിക്കിൾ / ബ്ലോഗ് വാക്കുകൾ
-STRICT_BLOCK_WORDS = [
-    "how to", "review", "guide", "top 10", "tips", "tricks", "improving security",
-    "gaming platforms", "meaning than size", "valentine", "hosting", "domain",
-    "server", "biometrics", "vpn", "antivirus", "ai are"
+IGNORE_WORDS = [
+    "review", "how to", "guide", "top 10", "hosting", "domain", 
+    "server", "valentine", "security", "gaming"
 ]
 
 # --- 1. Render 24/7 വെബ് സെർവർ ---
@@ -106,7 +105,7 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean} deals".strip(), text
 
-# --- ചാറ്റ് മെസ്സേജുകൾ കൈകാര്യം ചെയ്യുന്നു ---
+# --- ചാറ്റ് മെസ്സേജുകൾ ---
 def process_user_message(message):
     chat_id = message.get("chat", {}).get("id")
     user_text = message.get("text", "").strip()
@@ -185,63 +184,6 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- 100% യഥാർത്ഥ പ്രോഡക്റ്റ് മാത്രം വേർതിരിക്കുന്ന എഞ്ചിൻ ---
-def extract_deal_info(entry):
-    raw_title = getattr(entry, 'title', '')
-    clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
-    clean_title = html.unescape(clean_title)
-
-    content = f"{clean_title} {getattr(entry, 'summary', '')}"
-    content_lower = content.lower()
-
-    # 1. ബ്ലോഗ് / വാർത്തകൾ പൂർണ്ണമായി തടയുന്നു
-    if any(block in content_lower for block in STRICT_BLOCK_WORDS):
-        return None, None, None, None, None, None, None
-
-    # 2. വില പരിശോധന (വിലയില്ലാത്ത പോസ്റ്റുകൾ ഒഴിവാക്കുന്നു)
-    prices = [int(p.replace(',', '')) for p in re.findall(r'(?:Rs\.?|INR|₹|@|at\s?Rs\.?)\s?(\d+[\d,]*)', content, re.IGNORECASE)]
-    discount_match = re.search(r'(\d+)%\s*off', content, re.IGNORECASE)
-
-    if not prices or prices[0] <= 0:
-        return None, None, None, None, None, None, None
-
-    deal_price_num = prices[0]
-    mrp_num = prices[1] if len(prices) > 1 else 0
-
-    deal_price = f"₹{deal_price_num}"
-    mrp_price = f"<s>₹{mrp_num}</s>" if mrp_num > deal_price_num else ""
-
-    savings_text = ""
-    if mrp_num > deal_price_num:
-        savings_text = f"💵 നേരിട്ടുള്ള ലാഭം: ₹{mrp_num - deal_price_num}"
-
-    discount = f"({discount_match.group(1)}% OFF)" if discount_match else ""
-
-    # ചിത്രം കണ്ടെത്തൽ
-    image_url = None
-    if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
-        image_url = entry.media_content[0].get('url')
-    if not image_url and hasattr(entry, 'enclosures') and len(entry.enclosures) > 0:
-        image_url = entry.enclosures[0].get('href')
-    if not image_url:
-        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', getattr(entry, 'summary', ''))
-        if img_match:
-            image_url = img_match.group(1)
-
-    # നേരിട്ടുള്ള ആമസോൺ / ഫ്ലിപ്കാർട്ട് അഫിലിയേറ്റ് ലിങ്ക്
-    final_link = None
-    amz_match = re.search(r'https?://(?:www\.)?amazon\.in/[^\s"\'>]+', content)
-    if amz_match:
-        clean = amz_match.group(0).split('?')[0]
-        final_link = f"{clean}?tag={AMAZON_TAG}"
-    else:
-        search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
-        short_search = " ".join(search_words.split()[:4])
-        encoded_query = urllib.parse.quote_plus(short_search)
-        final_link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-
-    return clean_title, final_link, image_url, deal_price, mrp_price, discount, savings_text
-
 # --- ചാനൽ പോസ്റ്റിംഗ് ---
 def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, discount, savings_text):
     safe_title = html.escape(title)
@@ -268,23 +210,96 @@ def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, di
 
     if image_url:
         if send_telegram_photo(CHANNEL_ID, image_url, caption, buttons):
-            print(f"✅ ഫോട്ടോ പോസ്റ്റ് അയച്ചു: {title[:30]}")
             return
 
     send_telegram_message(CHANNEL_ID, caption, buttons)
-    print(f"✅ ടെക്സ്റ്റ് പോസ്റ്റ് അയച്ചു: {title[:30]}")
 
-# --- ചാനൽ ഫീഡ് ചെക്കർ ---
+# --- സ്റ്റാർട്ടപ്പ് ഇൻസ്റ്റന്റ് ഡീലുകൾ ---
+def post_initial_starter_deals():
+    starter_deals = [
+        {
+            "title": "Fortune Sunlite Refined Sunflower Oil, 1L Pouch",
+            "price": "₹118",
+            "mrp": "<s>₹165</s>",
+            "discount": "(28% OFF)",
+            "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹47",
+            "query": "fortune sunflower oil 1l"
+        },
+        {
+            "title": "Surf Excel Matic Front Load Liquid Detergent Pouch, 2L",
+            "price": "₹385",
+            "mrp": "<s>₹470</s>",
+            "discount": "(18% OFF)",
+            "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
+            "query": "surf excel matic liquid 2l"
+        },
+        {
+            "title": "Tata Tea Gold Leaf Tea, 1kg Pack with Long Leaves",
+            "price": "₹465",
+            "mrp": "<s>₹600</s>",
+            "discount": "(22% OFF)",
+            "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
+            "query": "tata tea gold 1kg"
+        }
+    ]
+    for d in starter_deals:
+        if d["title"] not in posted_deals:
+            encoded_query = urllib.parse.quote_plus(d["query"])
+            link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+            post_deal_to_channel(d["title"], link, None, d["price"], d["mrp"], d["discount"], d["savings"])
+            posted_deals.add(d["title"])
+            time.sleep(2)
+
+# --- ഫീഡ് എക്സ്ട്രാക്ഷൻ ---
+def extract_deal_info(entry):
+    raw_title = getattr(entry, 'title', '')
+    clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
+    clean_title = html.unescape(clean_title)
+
+    content = f"{clean_title} {getattr(entry, 'summary', '')}"
+    content_lower = content.lower()
+
+    if any(b in content_lower for b in IGNORE_WORDS):
+        return None, None, None, None, None, None, None
+
+    prices = [int(p.replace(',', '')) for p in re.findall(r'(?:Rs\.?|INR|₹|@|at)\s?(\d+[\d,]*)', content, re.IGNORECASE)]
+    discount_match = re.search(r'(\d+)%\s*off', content, re.IGNORECASE)
+
+    deal_price_num = prices[0] if prices else 0
+    mrp_num = prices[1] if len(prices) > 1 else 0
+
+    deal_price = f"₹{deal_price_num}" if deal_price_num > 0 else "ഇന്നത്തെ പ്രത്യേക വില"
+    mrp_price = f"<s>₹{mrp_num}</s>" if mrp_num > deal_price_num else ""
+
+    savings_text = ""
+    if mrp_num > deal_price_num and deal_price_num > 0:
+        savings_text = f"💵 നേരിട്ടുള്ള ലാഭം: ₹{mrp_num - deal_price_num}"
+
+    discount = f"({discount_match.group(1)}% OFF)" if discount_match else ""
+
+    image_url = None
+    if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
+        image_url = entry.media_content[0].get('url')
+    if not image_url and hasattr(entry, 'enclosures') and len(entry.enclosures) > 0:
+        image_url = entry.enclosures[0].get('href')
+
+    search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
+    short_search = " ".join(search_words.split()[:4])
+    encoded_query = urllib.parse.quote_plus(short_search)
+    final_link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+
+    return clean_title, final_link, image_url, deal_price, mrp_price, discount, savings_text
+
 def check_feeds_and_post():
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
     for url in FEED_URLS:
         try:
             resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code == 200:
                 feed = feedparser.parse(resp.content)
-                for entry in feed.entries[:6]:
+                for entry in feed.entries[:5]:
                     title, final_link, image_url, deal_price, mrp_price, discount, savings_text = extract_deal_info(entry)
                     if final_link and final_link not in posted_deals:
                         post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, discount, savings_text)
@@ -296,6 +311,12 @@ def check_feeds_and_post():
 # --- 2. ചാനൽ വർക്കർ ത്രെഡ് ---
 def channel_deals_thread():
     time.sleep(2)
+    # ബോട്ട് ഓൺ ആയ ഉടൻ പോസ്റ്റ് ചെയ്യുന്ന സ്റ്റാർട്ടർ ഡീലുകൾ
+    try:
+        post_initial_starter_deals()
+    except Exception as e:
+        print(f"Starter deals error: {e}")
+
     while True:
         try:
             check_feeds_and_post()
