@@ -27,12 +27,16 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
+# നിങ്ങളുടെ ടെലിഗ്രാം യൂസർ ഐഡി ഇവിടെ നൽകുക (@userinfobot വഴി ലഭിക്കുന്നത്)
+ADMIN_USER_ID = 1669788644
 FEED_URLS = [
     "https://www.desidime.com/feed",
     "https://freekaamaal.com/feed"
 ]
 
 posted_deals = set()
+registered_users = set()  # ബോട്ട് ഉപയോഗിക്കുന്ന ഉപയോക്താക്കളുടെ ലിസ്റ്റ്
+
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def run_web_server():
@@ -40,7 +44,7 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- സ്ഥിരമായ മെനു കീബോർഡ് ---
+# --- മെനു കീബോർഡ് ---
 def get_main_menu_keyboard():
     keyboard = [
         [KeyboardButton("📱 Mobiles & 5G"), KeyboardButton("🎧 Earbuds & Audio")],
@@ -48,6 +52,43 @@ def get_main_menu_keyboard():
         [KeyboardButton("💄 Beauty & Care"), KeyboardButton("🔥 Today's Top Loot")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+
+# --- അഡ്മിൻ ബ്രോഡ്കാസ്റ്റ് കമാൻഡ് ---
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if ADMIN_USER_ID != 0 and user_id != ADMIN_USER_ID:
+        await update.message.reply_text("⛔ *നിങ്ങൾക്ക് ഈ കമാൻഡ് ഉപയോഗിക്കാൻ അനുമതിയില്ല.*", parse_mode="Markdown")
+        return
+
+    # അയക്കേണ്ട മെസ്സേജ് വേർതിരിക്കുന്നു
+    broadcast_msg = update.message.text.replace("/broadcast", "").strip()
+    if not broadcast_msg:
+        await update.message.reply_text(
+            "⚠️ *ഉപയോഗിക്കേണ്ട വിധം:*\n`/broadcast നിങ്ങളുടെ സന്ദേശം ഇവിടെ നൽകുക`",
+            parse_mode="Markdown"
+        )
+        return
+
+    if not registered_users:
+        await update.message.reply_text("⚠️ *നിലവിൽ ബോട്ട് ഉപയോഗിച്ച ഉപയോക്താക്കൾ ആരും രജിസ്റ്റർ ആയിട്ടില്ല.*", parse_mode="Markdown")
+        return
+
+    success_count = 0
+    await update.message.reply_text(f"⏳ *{len(registered_users)} ഉപയോക്താക്കൾക്ക് മെസ്സേജ് അയക്കുന്നു...*", parse_mode="Markdown")
+
+    for uid in list(registered_users):
+        try:
+            await context.bot.send_message(
+                chat_id=uid,
+                text=f"📢 *Prime Finder Special Alert:*\n\n{broadcast_msg}",
+                parse_mode="Markdown"
+            )
+            success_count += 1
+            await asyncio.sleep(0.05)  # റേറ്റ് ലിമിറ്റ് ഒഴിവാക്കാൻ
+        except Exception:
+            pass
+
+    await update.message.reply_text(f"✅ *ബ്രോഡ്കാസ്റ്റ് വിജയകരം!*\n📬 അയച്ചത്: {success_count}/{len(registered_users)} ആളുകൾക്ക്.", parse_mode="Markdown")
 
 # --- കാറ്റഗറി ഡിറ്റക്ഷൻ ---
 def detect_category_and_query(text):
@@ -71,8 +112,12 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean if clean else 'top deals'} {budget}".strip()
 
-# --- യൂസർ സെർച്ച് ഹാൻഡ്‌ലർ ---
+# --- യൂസർ സെർച്ച് & റെജിസ്ട്രേഷൻ ---
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ഉപയോക്താവിനെ ലിസ്റ്റിലേക്ക് ചേർക്കുന്നു
+    if update.effective_user:
+        registered_users.add(update.effective_user.id)
+
     user_text = update.message.text.strip()
 
     if user_text == "/start":
@@ -137,11 +182,9 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# --- ലിങ്കും ചിത്രവും വേർതിരിച്ചെടുക്കുന്നു ---
+# --- ലൈവ് ഡീൽ എക്സ്ട്രാക്ഷൻ & പോസ്റ്റിംഗ് ---
 def extract_deal_info(entry):
     content = f"{getattr(entry, 'link', '')} {getattr(entry, 'summary', '')}"
-    
-    # 1. ചിത്രങ്ങൾ കണ്ടെത്തുന്നു
     image_url = None
     if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
         image_url = entry.media_content[0].get('url')
@@ -152,7 +195,6 @@ def extract_deal_info(entry):
         if img_match:
             image_url = img_match.group(1)
 
-    # 2. അഫിലിയേറ്റ് ലിങ്ക് തയ്യാറാക്കുന്നു
     final_link, platform = None, None
     amz = re.search(r'https?://(?:www\.)?amazon\.in/[^\s"\'>]+', content)
     if amz:
@@ -171,7 +213,6 @@ def extract_deal_info(entry):
 
     return final_link, platform, image_url
 
-# --- ഇമേജ് കാർഡ് സഹിതം ചാനൽ പോസ്റ്റിംഗ് ---
 async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url):
     try:
         badges = {
@@ -196,7 +237,6 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url
             [InlineKeyboardButton(f"🛒 Buy on {platform_name} Now", url=final_link)]
         ])
 
-        # ഇമേജ് ഉണ്ടെങ്കിൽ ഫോട്ടോ കാർഡായി അയക്കും
         if image_url:
             try:
                 await bot.send_photo(
@@ -208,7 +248,7 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url
                 )
                 return
             except Exception:
-                pass  # ഫോട്ടോ ലോഡ് ആയില്ലെങ്കിൽ താഴെ ടെക്സ്റ്റ് ആയി അയക്കും
+                pass
 
         await bot.send_message(
             chat_id=CHANNEL_ID,
@@ -243,6 +283,7 @@ async def channel_deals_loop(bot):
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_user_query))
     application.add_handler(CommandHandler("start", handle_user_query))
 
