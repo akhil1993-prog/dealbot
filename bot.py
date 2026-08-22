@@ -102,7 +102,6 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_text = update.message.text.strip()
 
-    # /start സ്വാഗതം
     if user_text == "/start":
         welcome_text = (
             "🙏 *നമസ്കാരം! Prime Finder സേവിംഗ്സ് & പ്രൈസ് ട്രാക്കറിലേക്ക് സ്വാഗതം.*\n\n"
@@ -116,7 +115,6 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # പ്രൈസ് ട്രാക്കർ നിർദ്ദേശം
     if "പ്രൈസ് ട്രാക്കർ" in user_text:
         help_msg = (
             "📉 *ആമസോൺ പ്രൈസ് ട്രാക്കർ ഉപയോഗിക്കേണ്ട വിധം:*\n\n"
@@ -127,7 +125,6 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(help_msg, parse_mode="Markdown")
         return
 
-    # ഉപയോക്താവ് ലിങ്ക് അയച്ചാൽ (Live Price Tracking)
     if "amazon.in" in user_text or "amzn.to" in user_text:
         asin = extract_asin(user_text)
         clean_url = user_text.split('?')[0] if '?' in user_text else user_text
@@ -146,7 +143,7 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔍 *ആമസോൺ ഉൽപ്പന്നം വിജയകരമായി ട്രാക്ക് ചെയ്തു!*\n\n"
             "━━━━━━━━━━━━━━━━━━━━\n"
             "💡 *സ്മാർട്ട് ഷോപ്പിംഗ് ടിപ്പ്:*\n"
-            "ഇന്നത്തെ ഓഫർ വില യഥാർത്ഥത്തിൽ കുറവാണോ അതോ വില കൂട്ടി ഓഫർ നൽകിയതാണോ എന്നറിയാൻ താഴെയുള്ള ബട്ടണിൽ ക്ലിക്ക് ചെയ്ത് **Price History Graph** പരിശോധിക്കാവുന്നതാണ്.\n"
+            "ഇന്നത്തെ ഓഫർ വില യഥാർത്ഥത്തിൽ കുറവാണോ എന്ന് ഉറപ്പാക്കാൻ താഴെയുള്ള ബട്ടണിൽ ക്ലിക്ക് ചെയ്ത് **Price History Graph** പരിശോധിക്കുക.\n"
             "━━━━━━━━━━━━━━━━━━━━"
         )
         await update.message.reply_text(
@@ -156,7 +153,6 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # കാറ്റഗറി തിരയൽ
     cat_type, search_query, display_name = detect_category_and_query(user_text)
     encoded = urllib.parse.quote_plus(search_query)
 
@@ -195,7 +191,6 @@ def extract_deal_info(entry):
 
     content = f"{clean_title} {getattr(entry, 'summary', '')}".lower()
 
-    # ക്വാളിറ്റി ഫിൽട്ടർ
     is_useful = any(keyword in content for keyword in TRUSTED_KEYWORDS)
     if not is_useful:
         return None, None, None, None, None, None, None, None
@@ -297,7 +292,9 @@ async def main():
 
     await application.initialize()
     await application.start()
-    await application.updater.start_polling()
+    
+    # പഴയ വെബ്ഹുക്കുകളോ പെൻഡിംഗ് റിക്വസ്റ്റുകളോ ക്ലിയർ ചെയ്യുന്നു
+    await application.updater.start_polling(drop_pending_updates=True)
 
     while True:
         await asyncio.sleep(3600)
