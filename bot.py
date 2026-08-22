@@ -7,7 +7,13 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import feedparser
 import requests
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+)
 
 BOT_TOKEN = "8996059238:AAEkf-zvMgRqUFG0Q-oJ39alhTcOfrldwuA"
 CHANNEL_ID = "@primefinder_in"
@@ -25,13 +31,18 @@ def run_web_server():
     server.serve_forever()
 
 
-# --- കസ്റ്റമർ സെർച്ച് കമാൻഡ് ഫീച്ചർ (/search) ---
-async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = " ".join(context.args)
-    if not query:
+# --- സാധാരണക്കാർക്ക് പേര് മാത്രം അയച്ചാൽ മറുപടി നൽകുന്ന ഫീച്ചർ ---
+async def handle_normal_text(
+    update: Update, context: ContextTypes.DEFAULT_TYPE
+):
+    query = update.message.text.strip()
+
+    # സ്റ്റാർട്ട് കമാൻഡ് ആണെങ്കിൽ സ്വാഗതം പറയും
+    if query == "/start":
         await update.message.reply_text(
-            "🔍 ദയവായി നിങ്ങൾ തിരയുന്ന സാധനത്തിന്റെ പേര് നൽകുക.\n\n"
-            "ഉദാഹരണം: `/search boat airpodes` അല്ലെങ്കിൽ `/search 5g mobile`",
+            "👋 *Prime Finder Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
+            "നിങ്ങൾക്ക് ആവശ്യമുള്ള ഏത് സാധനത്തിന്റെയും പേര് ഇവിടെ മെസ്സേജ് ആയി അയക്കൂ (ഉദാഹരണത്തിന്: `mobile`, `shoes`, `smart watch`, `shirt`).\n\n"
+            "ഏറ്റവും മികച്ച ഓഫറുകൾ ഞങ്ങൾ കണ്ടെത്തി തരാം!",
             parse_mode="Markdown",
         )
         return
@@ -41,14 +52,14 @@ async def search_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     flipkart_search_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.flipkart.com/search?q={encoded_query}"
 
     reply_text = (
-        f"🔎 *Search Results for:* _{query}_\n\n"
+        f"🔎 *{query}* തിരഞ്ഞതിനുള്ള മികച്ച ഫലങ്ങൾ താഴെ നൽകുന്നു:\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🛍️ *Amazon Deals & Best Sellers:*\n"
-        f"👉 [Amazon-ൽ തിരയുക & വാങ്ങുക]({amazon_search_url})\n\n"
-        f"🛍️ *Flipkart Deals & Offers:*\n"
-        f"👉 [Flipkart-ൽ തിരയുക & വാങ്ങുക]({flipkart_search_url})\n"
+        f"🟠 *Amazon Deals:*\n"
+        f"👉 [Amazon-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({amazon_search_url})\n\n"
+        f"🔵 *Flipkart Deals:*\n"
+        f"👉 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_search_url})\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"✅ _100% Genuine & Verified Products Assured!_"
+        f"✅ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഫാസ്റ്റ് ഡെലിവറിയും!_"
     )
 
     await update.message.reply_text(
@@ -90,9 +101,9 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
             f"• 🏬 Top Verified Sellers Only\n"
             f"• 🔄 Easy Returns & Replacement Available\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🛒 *ഓർഡർ ചെയ്യാൻ താഴെ കാണുന്ന ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
-            f"👉 [{platform_name}-ൽ നിന്ന് വാങ്ങൂ]({final_link})\n\n"
-            f"🔍 _നിങ്ങൾക്ക് ആവശ്യമുള്ള പ്രൊഡക്റ്റ് സെർച്ച് ചെയ്യാൻ ബോട്ടിൽ_ `/search <item>` _ടൈപ്പ് ചെയ്യുക._"
+            f"🛒 *വാങ്ങാൻ ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
+            f"👉 [{platform_name}-ൽ നിന്ന് ഓർഡർ ചെയ്യൂ]({final_link})\n\n"
+            f"💡 _മറ്റ് പ്രൊഡക്റ്റുകൾ തിരയാൻ ഈ ബോട്ടിന് സാധനത്തിന്റെ പേര് മാത്രം മെസ്സേജ് അയക്കുക!_"
         )
         await bot.send_message(
             chat_id=CHANNEL_ID,
@@ -134,16 +145,19 @@ async def channel_deals_loop(bot):
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("search", search_command))
 
-    # ബാക്ക്ഗ്രൗണ്ടിൽ ഡീൽ പോസ്റ്റിംഗ് തുടങ്ങുന്നു
+    # ഏതൊരു സാധാരണ മെസ്സേജിനും ഓട്ടോമാറ്റിക് സെർച്ച് നൽകുന്നു
+    application.add_handler(
+        MessageHandler(filters.TEXT & (~filters.COMMAND), handle_normal_text)
+    )
+    application.add_handler(CommandHandler("start", handle_normal_text))
+
     asyncio.create_task(channel_deals_loop(application.bot))
 
     await application.initialize()
     await application.start()
     await application.updater.start_polling()
 
-    # എപ്പോഴും റൺ ആകാൻ
     while True:
         await asyncio.sleep(3600)
 
