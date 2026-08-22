@@ -1,5 +1,8 @@
 import asyncio
+import os
 import re
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
 import feedparser
 from telegram import Bot
 
@@ -14,12 +17,17 @@ posted_deals = set()
 bot = Bot(token=BOT_TOKEN)
 
 
+# Render-ന് ആവശ്യമായ ഡമ്മി വെബ് സെർവർ
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
+    server.serve_forever()
+
+
 def detect_and_convert_link(text_or_url):
-    """വിവിധ പ്ലാറ്റ്‌ഫോമുകൾ കണ്ടെത്തി അഫിലിയേറ്റ് ലിങ്കിലേക്ക് മാറ്റുന്നു"""
     if not text_or_url:
         return None, None
 
-    # 1. Amazon
     amazon_match = re.search(
         r"https?://(?:www\.)?amazon\.in/[^\s\"\'>]+", text_or_url
     )
@@ -27,7 +35,6 @@ def detect_and_convert_link(text_or_url):
         clean_url = amazon_match.group(0).split("?")[0]
         return f"{clean_url}?tag={AMAZON_TAG}", "Amazon"
 
-    # 2. Flipkart
     flipkart_match = re.search(
         r"https?://(?:www\.)?flipkart\.com/[^\s\"\'>]+", text_or_url
     )
@@ -37,7 +44,6 @@ def detect_and_convert_link(text_or_url):
             "Flipkart"
         )
 
-    # 3. Myntra
     myntra_match = re.search(
         r"https?://(?:www\.)?myntra\.com/[^\s\"\'>]+", text_or_url
     )
@@ -47,39 +53,15 @@ def detect_and_convert_link(text_or_url):
             "Myntra"
         )
 
-    # 4. Ajio
-    ajio_match = re.search(
-        r"https?://(?:www\.)?ajio\.com/[^\s\"\'>]+", text_or_url
-    )
-    if ajio_match:
-        clean_url = ajio_match.group(0).split("?")[0]
-        return f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean_url}", (
-            "Ajio"
-        )
-
-    # 5. Nykaa
-    nykaa_match = re.search(
-        r"https?://(?:www\.)?nykaa\.com/[^\s\"\'>]+", text_or_url
-    )
-    if nykaa_match:
-        clean_url = nykaa_match.group(0).split("?")[0]
-        return f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean_url}", (
-            "Nykaa"
-        )
-
     return None, None
 
 
 async def send_deal_to_telegram(title, final_link, platform_name):
-    """ടെലിഗ്രാം ചാനലിലേക്ക് ഭംഗിയായി ഫോർമാറ്റ് ചെയ്ത് അയക്കുന്നു"""
     try:
-        # പ്ലാറ്റ്‌ഫോം അനുസരിച്ചുള്ള ബാഡ്ജുകൾ
         badges = {
             "Amazon": "🟠 *Amazon Deal*",
             "Flipkart": "🔵 *Flipkart Deal*",
-            "Myntra": "🔴 *Myntra Fashion Deal*",
-            "Ajio": "🟡 *Ajio Offer*",
-            "Nykaa": "🌸 *Nykaa Beauty Deal*",
+            "Myntra": "🔴 *Myntra Deal*",
         }
         badge = badges.get(platform_name, "🛍️ *Special Deal*")
 
@@ -108,7 +90,7 @@ async def check_all_deals():
         if not feed.entries:
             return
 
-        for entry in feed.entries[:15]:
+        for entry in feed.entries[:10]:
             title = getattr(entry, "title", "Special Deal")
             link = getattr(entry, "link", "")
             summary = getattr(entry, "summary", "")
@@ -119,17 +101,22 @@ async def check_all_deals():
             if final_link and final_link not in posted_deals:
                 await send_deal_to_telegram(title, final_link, platform)
                 posted_deals.add(final_link)
-                await asyncio.sleep(5)  # 5 സെക്കൻഡ് ഗ്യാപ്പ്
+                await asyncio.sleep(5)
     except Exception as e:
         print(f"⚠️ ഫീഡ് എറർ: {e}")
 
 
-async def main():
-    print("🚀 Prime Finder Multi-Store Bot വിജയകരമായി ആരംഭിച്ചു...")
+async def run_bot():
+    print("🚀 Prime Finder Auto Bot ക്ലൗഡിൽ റൺ ആകുന്നു...")
     while True:
         await check_all_deals()
-        await asyncio.sleep(1800)  # ഓരോ 30 മിനിറ്റിലും പരിശോധിക്കും
+        await asyncio.sleep(600)  # ഓരോ 10 മിനിറ്റിലും പുതിയ ഡീലുകൾ പരിശോധിക്കും
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    # ബാക്ക്ഗ്രൗണ്ടിൽ വെബ് സെർവർ സ്റ്റാർട്ട് ചെയ്യുന്നു
+    server_thread = threading.Thread(target=run_web_server, daemon=True)
+    server_thread.start()
+
+    # ബോട്ട് റൺ ചെയ്യുന്നു
+    asyncio.run(run_bot())
