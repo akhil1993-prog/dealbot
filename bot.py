@@ -278,12 +278,15 @@ async def check_all_feeds(bot):
             print(f"⚠️ ഫീഡ് എറർ: {e}")
 
 async def channel_deals_loop(bot):
-    await asyncio.sleep(2)
+    await asyncio.sleep(3)
     while True:
         await check_all_feeds(bot)
         await asyncio.sleep(180)
 
 async def main():
+    # ക്ലൗഡ് കോൺഫ്ലിക്റ്റ് ഒഴിവാക്കാൻ പഴയ സെഷനുകൾ ക്ലിയർ ചെയ്യുന്നു
+    requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
+    
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_user_query))
     application.add_handler(CommandHandler("start", handle_user_query))
@@ -293,8 +296,10 @@ async def main():
     await application.initialize()
     await application.start()
     
-    # പഴയ വെബ്ഹുക്കുകളോ പെൻഡിംഗ് റിക്വസ്റ്റുകളോ ക്ലിയർ ചെയ്യുന്നു
-    await application.updater.start_polling(drop_pending_updates=True)
+    try:
+        await application.updater.start_polling(drop_pending_updates=True)
+    except Exception as e:
+        print(f"Polling handled: {e}")
 
     while True:
         await asyncio.sleep(3600)
