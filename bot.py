@@ -9,7 +9,7 @@ from http.server import HTTPServer, SimpleHTTPRequestHandler
 import feedparser
 import requests
 
-# --- പ്രധാന കോൺഫിഗറേഷൻ ---
+# --- പ്രധാന വിവരങ്ങൾ ---
 BOT_TOKEN = "8996059238:AAGW7IbrwajkVTAd9vK-niLqGYWRyQqpdio"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
@@ -27,7 +27,6 @@ last_update_id = 0
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# --- വിശ്വസനീയമായ ബ്രാൻഡുകളുടെ ഫിൽട്ടർ ---
 TRUSTED_KEYWORDS = [
     "oil", "sugar", "tea", "soap", "surf", "detergent", "shampoo", "toothpaste",
     "rice", "ghee", "fortune", "tata", "dettol", "vim", "ariel", "colgate",
@@ -35,13 +34,12 @@ TRUSTED_KEYWORDS = [
     "grocery", "combos", "shoes", "fashion", "smartwatch", "earbuds"
 ]
 
-# --- Render 24/7 വെബ് സെർവർ ---
+# --- വെബ് സെർവർ ---
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം മെസ്സേജ് അയക്കുന്നതിനുള്ള ഡയറക്റ്റ് ഫംഗ്ഷൻ ---
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -55,9 +53,8 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     try:
         requests.post(url, json=payload, timeout=10)
     except Exception as e:
-        print(f"⚠️ മെസ്സേജ് അയക്കുന്നതിൽ എറർ: {e}")
+        print(f"⚠️ മെസ്സേജ് എറർ: {e}")
 
-# --- ടെലിഗ്രാം ഫോട്ടോ അയക്കുന്നതിനുള്ള ഫംഗ്ഷൻ ---
 def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     payload = {
@@ -74,7 +71,6 @@ def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     except Exception:
         return False
 
-# --- മെനു കീബോർഡ് ---
 def get_main_keyboard():
     return {
         "keyboard": [
@@ -86,12 +82,10 @@ def get_main_keyboard():
         "resize_keyboard": True
     }
 
-# --- ആമസോൺ ASIN കണ്ടെത്തൽ ---
 def extract_asin(url):
     match = re.search(r'(?:/dp/|/gp/product/|/d/|/ASIN/|/product/)([A-Z0-9]{10})', url)
     return match.group(1) if match else None
 
-# --- സാധനങ്ങൾ തിരിച്ചറിയൽ ---
 def detect_category_and_query(text):
     text_lower = text.lower()
     if any(w in text_lower for w in ["പലചരക്ക്", "വെളിച്ചെണ്ണ", "പഞ്ചസാര", "അരി", "ഓയിൽ", "grocery", "oil", "rice", "sugar"]):
@@ -110,7 +104,6 @@ def detect_category_and_query(text):
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean} deals".strip(), text
 
-# --- ഉപഭോക്താവിന്റെ മെസ്സേജുകൾ പ്രോസസ്സ് ചെയ്യുന്നു ---
 def process_user_message(message):
     chat_id = message.get("chat", {}).get("id")
     user_text = message.get("text", "").strip()
@@ -189,7 +182,6 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- ഡീൽ എക്സ്ട്രാക്ഷൻ എഞ്ചിൻ ---
 def extract_deal_info(entry):
     raw_title = getattr(entry, 'title', '')
     clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
@@ -232,7 +224,6 @@ def extract_deal_info(entry):
 
     return clean_title, final_link, image_url, deal_price, mrp_price, discount, savings_text
 
-# --- ചാനലിലേക്ക് പോസ്റ്റ് ചെയ്യുന്നു ---
 def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, discount, savings_text):
     caption = (
         f"🔥 *വമ്പൻ വിലക്കുറവ് (PRICE DROP ALERT)!*\n\n"
@@ -261,7 +252,6 @@ def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, di
 
     send_telegram_message(CHANNEL_ID, caption, buttons)
 
-# --- ഫീഡ് ടാസ്ക് ---
 def check_feeds_and_post():
     headers = {"User-Agent": "Mozilla/5.0"}
     for url in FEED_URLS:
@@ -277,7 +267,6 @@ def check_feeds_and_post():
         except Exception as e:
             print(f"⚠️ ഫീഡ് എറർ: {e}")
 
-# --- ചാനൽ ബാക്ക്‌ഗ്രൗണ്ട് ലൂപ്പ് ---
 async def channel_deals_worker():
     while True:
         try:
@@ -286,7 +275,6 @@ async def channel_deals_worker():
             print(f"⚠️ വർക്കർ എറർ: {e}")
         await asyncio.sleep(180)
 
-# --- കോൺഫ്ലിക്റ്റ് ഇല്ലാത്ത ലൈറ്റ്-വെയ്റ്റ് പോളിംഗ് എഞ്ചിൻ ---
 async def poll_telegram_updates():
     global last_update_id
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
