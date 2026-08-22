@@ -15,8 +15,26 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# 100% കൃത്യമായ തത്സമയ ഉൽപ്പന്നങ്ങളും ഡയറക്റ്റ് ആമസോൺ പേജുകളും
+# 100% കൃത്യമായ തത്സമയ ഉൽപ്പന്നങ്ങളുടെ കാറ്റലോഗ്
 VERIFIED_DEALS = [
+    {
+        "title": "Surf Excel Matic Top Load Liquid Detergent Pouch, 2L",
+        "price": "₹385",
+        "mrp": "<s>₹470</s>",
+        "discount": "(18% OFF)",
+        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
+        "direct_url": f"https://www.amazon.in/dp/B084G47746?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SX679_.jpg"
+    },
+    {
+        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack with Long Leaves",
+        "price": "₹465",
+        "mrp": "<s>₹600</s>",
+        "discount": "(22% OFF)",
+        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
+        "direct_url": f"https://www.amazon.in/dp/B07DYP6QNW?tag={AMAZON_TAG}",
+        "img_url": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SX679_.jpg"
+    },
     {
         "title": "boAt Airdopes 141 Bluetooth Truly Wireless Earbuds (42H Playtime)",
         "price": "₹999",
@@ -34,15 +52,6 @@ VERIFIED_DEALS = [
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹4,800",
         "direct_url": f"https://www.amazon.in/dp/B0B6BNMVL9?tag={AMAZON_TAG}",
         "img_url": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SX679_.jpg"
-    },
-    {
-        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack with Long Leaves",
-        "price": "₹465",
-        "mrp": "<s>₹600</s>",
-        "discount": "(22% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
-        "direct_url": f"https://www.amazon.in/dp/B07DYP6QNW?tag={AMAZON_TAG}",
-        "img_url": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SX679_.jpg"
     },
     {
         "title": "Cadbury Celebrations Premium Assorted Chocolate Gift Pack, 183.6g",
@@ -73,10 +82,10 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം ഫോട്ടോ ഡയറക്റ്റ് അപ്‌ലോഡ് ---
+# --- ടെലിഗ്രാം ഫോട്ടോ മെസ്സേജ് ---
 def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
     }
     try:
         img_resp = requests.get(photo_url, headers=headers, timeout=12)
@@ -113,14 +122,13 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     except Exception as e:
         print(f"⚠️ മെസ്സേജ് എറർ: {e}")
 
-# --- മെനു കീബോർഡ് ---
+# --- സമ്പൂർണ്ണ പൊതുജന സേവന കീബോർഡ് ---
 def get_main_keyboard():
     return {
         "keyboard": [
-            [{"text": "🛒 നിത്യോപയോഗ സാധനങ്ങൾ (പലചരക്ക്)"}, {"text": "🧼 ക്ലീനിംഗ് & സോപ്പുകൾ"}],
-            [{"text": "☕ ചായപ്പൊടി & പലഹാരങ്ങൾ"}, {"text": "🧴 പേഴ്സണൽ കെയർ & ഷാംപൂ"}],
-            [{"text": "📱 മൊബൈൽ & ഇലക്ട്രോണിക്സ്"}, {"text": "🔥 ഇന്നത്തെ വമ്പൻ പ്രൈസ് ഡ്രോപ്പുകൾ"}],
-            [{"text": "📉 പ്രൈസ് ട്രാക്കർ (വില ഹിസ്റ്ററി പരിശോധിക്കാൻ)"}]
+            [{"text": "🛒 പലചരക്ക് വില താരതമ്യം"}, {"text": "⚡ ₹1, ₹9 & ₹49 ബഡ്ജറ്റ് ഡീലുകൾ"}],
+            [{"text": "📚 വിദ്യാർത്ഥി സഹായി (സ്റ്റേഷനറി)"}, {"text": "🌴 കേരള സീസണൽ ഓഫറുകൾ"}],
+            [{"text": "💳 റീചാർജ് & ബിൽ ക്യാഷ്ബാക്ക്"}, {"text": "📉 ലൈവ് പ്രൈസ് ട്രാക്കർ"}]
         ],
         "resize_keyboard": True
     }
@@ -129,25 +137,7 @@ def extract_asin(url):
     match = re.search(r'(?:/dp/|/gp/product/|/d/|/ASIN/|/product/)([A-Z0-9]{10})', url)
     return match.group(1) if match else None
 
-def detect_category_and_query(text):
-    text_lower = text.lower()
-    if any(w in text_lower for w in ["പലചരക്ക്", "വെളിച്ചെണ്ണ", "പഞ്ചസാര", "അരി", "ഓയിൽ", "grocery", "oil", "rice", "sugar"]):
-        return "grocery", "grocery daily essentials cooking oil sugar tea", "നിത്യോപയോഗ പലചരക്ക് സാധനങ്ങൾ"
-    elif any(w in text_lower for w in ["ക്ലീനിംഗ്", "സോപ്പ്", "വാഷിംഗ്", "soap", "surf", "detergent", "vim", "ariel"]):
-        return "cleaning", "washing powder detergent soap liquid vim surf excel", "ക്ലീനിംഗ് & സോപ്പുകൾ"
-    elif any(w in text_lower for w in ["ചായ", "കാപ്പി", "ബിസ്ക്കറ്റ്", "tea", "coffee", "biscuit", "snacks"]):
-        return "food", "tea powder coffee biscuits snacks cadbury", "ചായപ്പൊടി & ഭക്ഷ്യോൽപ്പന്നങ്ങൾ"
-    elif any(w in text_lower for w in ["ഷാംപൂ", "പേസ്റ്റ്", "shampoo", "toothpaste", "care", "dettol"]):
-        return "personal_care", "shampoo toothpaste body wash dettol soap", "പേഴ്സണൽ കെയർ ഉൽപ്പന്നങ്ങൾ"
-    elif any(w in text_lower for w in ["മൊബൈൽ", "ഫോൺ", "phone", "mobile", "5g"]):
-        return "electronics", "5g smartphone electronics", "സ്മാർട്ട്ഫോണുകൾ & ഇലക്ട്രോണിക്സ്"
-    elif any(w in text_lower for w in ["ഡ്രോപ്പ്", "പ്രൈസ്", "വമ്പൻ", "loot", "deal"]):
-        return "price_drop", "amazon deals 50% to 80% discount", "ഇന്നത്തെ വലിയ പ്രൈസ് ഡ്രോപ്പുകൾ"
-    else:
-        clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
-        return "general", f"{clean} deals".strip(), text
-
-# --- ചാറ്റ് ഉപയോക്താക്കൾക്കുള്ള മറുപടി ---
+# --- ചാറ്റ് മെസ്സേജ് പ്രോസസ്സിംഗ് ---
 def process_user_message(message):
     chat_id = message.get("chat", {}).get("id")
     user_text = message.get("text", "").strip()
@@ -157,25 +147,106 @@ def process_user_message(message):
 
     registered_users.add(chat_id)
 
+    # 1. Start കമാൻഡ്
     if user_text == "/start":
         welcome_text = (
-            "🙏 <b>നമസ്കാരം! Prime Finder സേവിംഗ്സ് & പ്രൈസ് ട്രാക്കറിലേക്ക് സ്വാഗതം.</b>\n\n"
-            "• നിത്യോപയോഗ സാധനങ്ങൾ വിലക്കുറവിൽ കണ്ടെത്താൻ താഴെയുള്ള മെനു ഉപയോഗിക്കുക.\n"
-            "• ഏതെങ്കിലും ഒരു സാധനത്തിന്റെ കഴിഞ്ഞ മാസങ്ങളിലെ ഏറ്റവും കുറഞ്ഞ വില അറിയാൻ <b>ആമസോൺ ലിങ്ക് ഇവിടെ അയക്കുക!</b>"
+            "🙏 <b>നമസ്കാരം! Prime Finder ജനസേവന സേവിംഗ്സ് അസിസ്റ്റന്റിലേക്ക് സ്വാഗതം.</b>\n\n"
+            "സാധാരണക്കാർക്ക് നിത്യജീവിതത്തിൽ പണം ലാഭിക്കാൻ ആവശ്യമായ എല്ലാ സേവനങ്ങളും താഴെ ലഭ്യമാണ്:\n\n"
+            "• പലചരക്ക് സാധനങ്ങളുടെ വില താരതമ്യം\n"
+            "• ₹1, ₹9 പോക്കറ്റ് ഡീലുകൾ\n"
+            "• പഠന സാമഗ്രികളുടെ വിലക്കുറവ്\n"
+            "• റീചാർജ് & ബിൽ പേയ്‌മെന്റ് ഓഫറുകൾ\n"
+            "• സാധനങ്ങളുടെ യഥാർത്ഥ വില അറിയാൻ ആമസോൺ ലിങ്ക് അയക്കുക!"
         )
         send_telegram_message(chat_id, welcome_text, get_main_keyboard())
         return
 
-    if "പ്രൈസ് ട്രാക്കർ" in user_text:
+    # 2. പലചരക്ക് വില താരതമ്യം
+    if "പലചരക്ക് വില താരതമ്യം" in user_text:
+        msg = (
+            "🛒 <b>പലചരക്ക് സാധനങ്ങൾ വില താരതമ്യം ചെയ്ത് വാങ്ങാം:</b>\n\n"
+            "അരി, എണ്ണ, പഞ്ചസാര, സോപ്പ് തുടങ്ങിയവയ്ക്ക് Amazon Fresh, Flipkart Grocery എന്നിവയിലെ ഇന്നത്തെ ഏറ്റവും കുറഞ്ഞ വിലകൾ ചുവടെ പരിശോധിക്കുക 👇"
+        )
+        buttons = {
+            "inline_keyboard": [
+                [{"text": "🟠 Amazon Fresh സൂപ്പർ ഓഫറുകൾ", "url": f"https://www.amazon.in/alm/storefront?almBrandId=ctnow&tag={AMAZON_TAG}"}],
+                [{"text": "🔵 Flipkart Grocery ഡീലുകൾ", "url": "https://www.flipkart.com/grocery-supermart-store"}]
+            ]
+        }
+        send_telegram_message(chat_id, msg, buttons)
+        return
+
+    # 3. ₹1, ₹9 & ₹49 ബഡ്ജറ്റ് ഡീലുകൾ
+    if "ബഡ്ജറ്റ് ഡീലുകൾ" in user_text:
+        msg = (
+            "⚡ <b>പോക്കറ്റ് ഫ്രണ്ട്‌ലി ബഡ്ജറ്റ് ഡീലുകൾ:</b>\n\n"
+            "സാധാരണക്കാർക്ക് ₹1, ₹9, ₹49, ₹99 നിരക്കിൽ ദിവസേന ലഭിക്കുന്ന ചെറിയ വീട്ടുസാധനങ്ങളുടെയും ഓഫറുകളുടെയും തത്സമയ ലിങ്ക് താഴെ നൽകുന്നു 👇"
+        )
+        buttons = {
+            "inline_keyboard": [
+                [{"text": "🔥 ₹99-ൽ താഴെയുള്ള മികച്ച ഡീലുകൾ", "url": f"https://www.amazon.in/s?k=under+99+daily+essentials&tag={AMAZON_TAG}"}],
+                [{"text": "⚡ Amazon ₹1 & ₹9 ഫ്ലാഷ് ഡീലുകൾ", "url": f"https://www.amazon.in/deals?tag={AMAZON_TAG}&pct-off=70-"}]
+            ]
+        }
+        send_telegram_message(chat_id, msg, buttons)
+        return
+
+    # 4. വിദ്യാർത്ഥി സഹായി (സ്റ്റേഷനറി)
+    if "വിദ്യാർത്ഥി സഹായി" in user_text:
+        msg = (
+            "📚 <b>വിദ്യാർത്ഥികൾക്കും രക്ഷിതാക്കൾക്കും ഉപകാരപ്രദമായ ഓഫറുകൾ:</b>\n\n"
+            "നോട്ട്ബുക്കുകൾ, പേനകൾ, സ്കൂൾ ബാഗുകൾ, കാൽക്കുലേറ്ററുകൾ, മറ്റ് സ്റ്റഡി മെറ്റീരിയലുകൾ എന്നിവ ഹോൾസെയിൽ വിലക്കുറവിൽ വാങ്ങാം 👇"
+        )
+        buttons = {
+            "inline_keyboard": [
+                [{"text": "✏️ നോട്ട്ബുക്ക് & പേന കോമ്പോകൾ (വിലക്കുറവിൽ)", "url": f"https://www.amazon.in/s?k=school+stationery+combo+pack&tag={AMAZON_TAG}"}],
+                [{"text": "🎒 സ്കൂൾ & കോളേജ് ബാഗുകൾ (Up to 70% Off)", "url": f"https://www.amazon.in/s?k=school+college+backpacks&tag={AMAZON_TAG}"}]
+            ]
+        }
+        send_telegram_message(chat_id, msg, buttons)
+        return
+
+    # 5. കേരള സീസണൽ ഓഫറുകൾ
+    if "കേരള സീസണൽ ഓഫറുകൾ" in user_text:
+        msg = (
+            "🌴 <b>കേരള സ്പെഷ്യൽ & സീസണൽ സേവിംഗ്സ്:</b>\n\n"
+            "മഴക്കാല സാമഗ്രികൾ (കുട, റെയിൻകോട്ട്), അടുക്കള ഉപകരണങ്ങൾ, എൽഇഡി ലൈറ്റുകൾ, കൊതുക് നിവാരണ ഉപാധികൾ എന്നിവ വിലക്കുറവിൽ ലഭിക്കുന്ന ലിങ്കുകൾ 👇"
+        )
+        buttons = {
+            "inline_keyboard": [
+                [{"text": "☔ കുടകൾ & റെയിൻകോട്ടുകൾ", "url": f"https://www.amazon.in/s?k=umbrella+raincoat+waterproof&tag={AMAZON_TAG}"}],
+                [{"text": "🍳 കിച്ചൺ & വീട്ടുപകരണങ്ങൾ (വമ്പൻ ഓഫറുകൾ)", "url": f"https://www.amazon.in/s?k=home+kitchen+appliances+deals&tag={AMAZON_TAG}"}]
+            ]
+        }
+        send_telegram_message(chat_id, msg, buttons)
+        return
+
+    # 6. റീചാർജ് & ബിൽ ക്യാഷ്ബാക്ക്
+    if "റീചാർജ് & ബിൽ ക്യാഷ്ബാക്ക്" in user_text:
+        msg = (
+            "💳 <b>മൊബൈൽ റീചാർജ് & ബിൽ പേയ്‌മെന്റ് ക്യാഷ്ബാക്ക്:</b>\n\n"
+            "മൊബൈൽ റീചാർജ്, കറന്റ് ബിൽ, ഗ്യാസ് സിലിണ്ടർ എന്നിവ പേ ചെയ്യുമ്പോൾ ക്യാഷ്ബാക്ക് റിവാർഡുകൾ ലഭിക്കുന്ന ഔദ്യോഗിക പേജ് താഴെ നൽകുന്നു 👇"
+        )
+        buttons = {
+            "inline_keyboard": [
+                [{"text": "⚡ Amazon Pay റീചാർജ് & ബിൽ ഓഫറുകൾ", "url": f"https://www.amazon.in/amazonpay/home?tag={AMAZON_TAG}"}]
+            ]
+        }
+        send_telegram_message(chat_id, msg, buttons)
+        return
+
+    # 7. പ്രൈസ് ട്രാക്കർ നിർദ്ദേശം
+    if "ലൈവ് പ്രൈസ് ട്രാക്കർ" in user_text:
         help_msg = (
             "📉 <b>ആമസോൺ പ്രൈസ് ട്രാക്കർ ഉപയോഗിക്കേണ്ട വിധം:</b>\n\n"
             "1. ആമസോണിൽ നിങ്ങൾ വാങ്ങാൻ ഉദ്ദേശിക്കുന്ന സാധനത്തിന്റെ <b>ലിങ്ക് (Share Link)</b> കോപ്പി ചെയ്യുക.\n"
             "2. ആ ലിങ്ക് ഈ ചാറ്റിലേക്ക് പേസ്റ്റ് ചെയ്ത് അയക്കുക.\n"
-            "3. ബോട്ട് ഉടൻ തന്നെ ആ സാധനത്തിന്റെ കഴിഞ്ഞ മാസങ്ങളിലെ ഏറ്റവും കുറഞ്ഞ വില പരിശോധിക്കാനുള്ള വിവരങ്ങൾ നൽകും!"
+            "3. ബോട്ട് ഉടൻ തന്നെ ആ സാധനത്തിന്റെ മുൻകാലങ്ങളിലെ ഏറ്റവും കുറഞ്ഞ വില പരിശോധിക്കാനുള്ള ഗ്രാഫ് നൽകും!"
         )
         send_telegram_message(chat_id, help_msg)
         return
 
+    # 8. ആമസോൺ ലിങ്ക് ട്രാക്കിംഗ് (Live URL)
     if "amazon.in" in user_text or "amzn.to" in user_text:
         asin = extract_asin(user_text)
         clean_url = user_text.split('?')[0] if '?' in user_text else user_text
@@ -199,34 +270,20 @@ def process_user_message(message):
         send_telegram_message(chat_id, tracker_msg, buttons)
         return
 
-    cat_type, search_query, display_name = detect_category_and_query(user_text)
-    encoded = urllib.parse.quote_plus(search_query)
-
-    amazon_grocery_url = f"https://www.amazon.in/s?k={encoded}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-    flipkart_grocery_url = f"https://www.flipkart.com/search?q={encoded}&sort=popularity"
-    amazon_price_drops = f"https://www.amazon.in/deals?tag={AMAZON_TAG}&pct-off=40-"
+    # 9. മറ്റ് ജനറൽ സെർച്ചുകൾ
+    encoded = urllib.parse.quote_plus(user_text)
+    amazon_url = f"https://www.amazon.in/s?k={encoded}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+    flipkart_url = f"https://www.flipkart.com/search?q={encoded}&sort=popularity"
 
     buttons = {
         "inline_keyboard": [
-            [{"text": "🛒 Amazon-ൽ മികച്ച വിലയ്ക്ക് വാങ്ങുക", "url": amazon_grocery_url}],
-            [{"text": "🔵 Flipkart ഓഫറുകൾ കാണുക", "url": flipkart_grocery_url}],
-            [{"text": "🔥 40% മുതൽ 80% വരെ പ്രൈസ് ഡ്രോപ്പുകൾ", "url": amazon_price_drops}]
+            [{"text": "🟠 Amazon-ൽ 4★+ ഓഫറുകൾ കാണുക", "url": amazon_url}],
+            [{"text": "🔵 Flipkart-ൽ പരിശോധിക്കുക", "url": flipkart_url}]
         ]
     }
+    send_telegram_message(chat_id, f"✅ <b>'{html.escape(user_text)}'</b> എന്നിവയിലെ ഏറ്റവും മികച്ച ഓഫറുകൾ താഴെ ലഭ്യമാണ്:", buttons)
 
-    reply_msg = (
-        f"✅ <b>{html.escape(display_name)} കണ്ടെത്താൻ സാധിച്ചു!</b>\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💡 <b>പ്രത്യേകതകൾ:</b>\n"
-        f"• കടകളിലേതിനേക്കാൾ വലിയ വിലക്കുറവ്\n"
-        f"• 100% ഒറിജിനൽ വിശ്വസനീയ ബ്രാൻഡുകൾ\n"
-        f"• നേരിട്ട് വീട്ടിലെത്തിക്കുന്ന സർവീസ്\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"👇 <b>വില പരിശോധിക്കാനും വാങ്ങാനും താഴെ ക്ലിക്ക് ചെയ്യുക:</b>"
-    )
-    send_telegram_message(chat_id, reply_msg, buttons)
-
-# --- പ്രൊഫഷണൽ ചാനൽ പോസ്റ്റിംഗ് ---
+# --- ചാനൽ പോസ്റ്റിംഗ് എഞ്ചിൻ ---
 def post_deal(deal):
     safe_title = html.escape(deal["title"])
 
@@ -251,9 +308,9 @@ def post_deal(deal):
     if not success:
         send_telegram_message(CHANNEL_ID, caption, buttons)
 
-    print(f"✅ പോസ്റ്റ് അയച്ചു: {deal['title'][:30]}")
+    print(f"✅ ചാനൽ പോസ്റ്റ് അയച്ചു: {deal['title'][:30]}")
 
-# --- 2. ചാനൽ ഓട്ടോമേഷൻ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ ഡീൽ) ---
+# --- ചാനൽ ഓട്ടോമേഷൻ (ഓരോ 15 മിനിറ്റിലും പോസ്റ്റ്) ---
 def channel_worker():
     catalog_cycle = itertools.cycle(VERIFIED_DEALS)
     time.sleep(2)
@@ -264,9 +321,9 @@ def channel_worker():
             post_deal(deal)
         except Exception as e:
             print(f"⚠️ വർക്കർ എറർ: {e}")
-        time.sleep(900)  # കൃത്യം 15 മിനിറ്റ്
+        time.sleep(900)  # 15 മിനിറ്റ്
 
-# --- 3. ടെലിഗ്രാം യൂസർ പോളിംഗ് ത്രെഡ് ---
+# --- ടെലിഗ്രാം യൂസർ പോളിംഗ് ത്രെഡ് ---
 def telegram_polling_thread():
     global last_update_id
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
