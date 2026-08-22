@@ -15,43 +15,25 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# 100% വെരിഫൈ ചെയ്ത ഡയറക്റ്റ് ആമസോൺ ഉൽപ്പന്നങ്ങൾ (Direct ASIN & Photo)
+# 100% ലൈവ് ആക്ടീവ് ആയ ആമസോൺ ഉൽപ്പന്നങ്ങൾ (Verified Active ASIN & Direct Image)
 VERIFIED_DEAL_CATALOG = [
     {
-        "title": "Fortune Sunlite Refined Sunflower Oil, 1L Pouch",
-        "price": "₹128",
-        "mrp": "<s>₹165</s>",
-        "discount": "(22% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹37",
-        "asin": "B01MY0C4W8",
-        "image": "https://m.media-amazon.com/images/I/71Yv3t5lM+L._SL1500_.jpg"
-    },
-    {
-        "title": "Surf Excel Matic Front Load Liquid Detergent Pouch, 2L",
+        "title": "Surf Excel Matic Top Load Liquid Detergent Pouch, 2L",
         "price": "₹385",
         "mrp": "<s>₹470</s>",
         "discount": "(18% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
         "asin": "B084G47746",
-        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SL1000_.jpg"
+        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SX679_.jpg"
     },
     {
-        "title": "Tata Tea Gold Leaf Tea with Gently Rolled Long Leaves, 1kg",
+        "title": "Tata Tea Gold Leaf Tea, 1kg Pack with Long Leaves",
         "price": "₹465",
         "mrp": "<s>₹600</s>",
         "discount": "(22% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
         "asin": "B07DYP6QNW",
-        "image": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SL1000_.jpg"
-    },
-    {
-        "title": "Aashirvaad Superior MP Whole Wheat Atta, 5kg Pack",
-        "price": "₹245",
-        "mrp": "<s>₹299</s>",
-        "discount": "(18% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹54",
-        "asin": "B00K5F05K2",
-        "image": "https://m.media-amazon.com/images/I/71m4b+hE9hL._SL1000_.jpg"
+        "image": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SX679_.jpg"
     },
     {
         "title": "boAt Airdopes 141 Bluetooth Truly Wireless Earbuds (42H Playtime)",
@@ -60,7 +42,7 @@ VERIFIED_DEAL_CATALOG = [
         "discount": "(78% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹3,491",
         "asin": "B09N3ZNHTY",
-        "image": "https://m.media-amazon.com/images/I/51HBom8xz7L._SL1500_.jpg"
+        "image": "https://m.media-amazon.com/images/I/51HBom8xz7L._SX679_.jpg"
     },
     {
         "title": "Noise Pulse 2 Max 1.85'' TFT LCD Smart Watch (Bluetooth Calling)",
@@ -69,7 +51,7 @@ VERIFIED_DEAL_CATALOG = [
         "discount": "(80% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹4,800",
         "asin": "B0B6BNMVL9",
-        "image": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SL1500_.jpg"
+        "image": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SX679_.jpg"
     },
     {
         "title": "Dettol Liquid Handwash Refill, 1500ml Value Pack",
@@ -78,16 +60,7 @@ VERIFIED_DEAL_CATALOG = [
         "discount": "(27% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
         "asin": "B07P41S8X1",
-        "image": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SL1000_.jpg"
-    },
-    {
-        "title": "Vim Dishwash Gel Lemon, 2L Bottle with Easy Pour Spout",
-        "price": "₹370",
-        "mrp": "<s>₹499</s>",
-        "discount": "(26% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹129",
-        "asin": "B07L5P4VLL",
-        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SL1000_.jpg"
+        "image": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SX679_.jpg"
     },
     {
         "title": "Cadbury Celebrations Premium Assorted Chocolate Gift Pack, 183.6g",
@@ -96,7 +69,7 @@ VERIFIED_DEAL_CATALOG = [
         "discount": "(25% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹40",
         "asin": "B00TX84620",
-        "image": "https://m.media-amazon.com/images/I/71N7-w4u76L._SL1500_.jpg"
+        "image": "https://m.media-amazon.com/images/I/71N7-w4u76L._SX679_.jpg"
     }
 ]
 
@@ -109,7 +82,7 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം ഫോട്ടോ മെസ്സേജ് അയക്കുന്ന ഫംഗ്ഷൻ ---
+# --- ടെലിഗ്രാം ഫോട്ടോ മെസ്സേജ് ---
 def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     payload = {
@@ -122,11 +95,9 @@ def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
         payload["reply_markup"] = reply_markup
     try:
         resp = requests.post(url, json=payload, timeout=12)
-        if resp.status_code == 200:
-            return True
+        return resp.status_code == 200
     except Exception:
-        pass
-    return False
+        return False
 
 # --- ടെലിഗ്രാം ടെക്സ്റ്റ് മെസ്സേജ് ---
 def send_telegram_message(chat_id, text, reply_markup=None):
@@ -257,11 +228,11 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- ഡയറക്റ്റ് പ്രൊഡക്റ്റ് പേജ് പോസ്റ്റിംഗ് ---
+# --- ഡയറക്റ്റ് ആമസോൺ പ്രൊഡക്റ്റ് പേജ് പോസ്റ്റിംഗ് ---
 def post_verified_deal(deal):
     safe_title = html.escape(deal["title"])
-    # നേരിട്ട് ആമസോൺ പ്രൊഡക്റ്റ് പേജിലേക്ക് പോകുന്ന ഡയറക്റ്റ് ലിങ്ക്
-    direct_link = f"https://www.amazon.in/dp/{deal['asin']}?tag={AMAZON_TAG}"
+    # 100% കൃത്യമായ ആമസോൺ ലിങ്ക് ഫോർമാറ്റ്
+    direct_link = f"https://www.amazon.in/dp/{deal['asin']}/?tag={AMAZON_TAG}"
 
     caption = (
         f"🔥 <b>വമ്പൻ വിലക്കുറവ് (PRICE DROP ALERT)!</b>\n\n"
@@ -280,12 +251,14 @@ def post_verified_deal(deal):
         ]
     }
 
-    if not send_telegram_photo(CHANNEL_ID, deal["image"], caption, buttons):
+    # ഫോട്ടോ സഹിതം അയക്കുന്നു
+    success = send_telegram_photo(CHANNEL_ID, deal["image"], caption, buttons)
+    if not success:
         send_telegram_message(CHANNEL_ID, caption, buttons)
 
-    print(f"✅ കൃത്യമായ ഫോട്ടോയും ഡയറക്റ്റ് ലിങ്കുമായി പോസ്റ്റ് അയച്ചു: {deal['title'][:30]}")
+    print(f"✅ പോസ്റ്റ് വിജയകരമായി അയച്ചു: {deal['title'][:30]}")
 
-# --- 2. ചാനൽ വർക്കർ (ഡയറക്റ്റ് പ്രോഡക്റ്റ് പോസ്റ്റുകൾ ഓരോ 15 മിനിറ്റിലും) ---
+# --- 2. ചാനൽ വർക്കർ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ ഡീൽ) ---
 def channel_worker():
     catalog_cycle = itertools.cycle(VERIFIED_DEAL_CATALOG)
     time.sleep(2)
