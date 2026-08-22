@@ -21,11 +21,8 @@ BOT_TOKEN = "8996059238:AAEkf-zvMgRqUFG0Q-oJ39alhTcOfrldwuA"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
-GEMINI_API_KEY = (
-    "AQ.Ab8RN6IY541GeWsvH8LYPBo0mcQHMvpNIir9Ji2SBReyEH8F-Q"  # നിങ്ങളുടെ Gemini Key
-)
+GEMINI_API_KEY = "AQ.Ab8RN6IY541GeWsvH8LYPBo0mcQHMvpNIir9Ji2SBReyEH8F-Q"
 
-# Gemini AI കോൺഫിഗറേഷൻ
 genai.configure(api_key=GEMINI_API_KEY)
 ai_model = genai.GenerativeModel("gemini-1.5-flash")
 
@@ -40,45 +37,48 @@ def run_web_server():
     server.serve_forever()
 
 
-# --- 1. AI ഷോപ്പിംഗ് അസിസ്റ്റന്റ് ചാറ്റ്ബോട്ട് ---
+# --- AI സ്മാർട്ട് അസിസ്റ്റന്റ് & ട്രാൻസ്ലേറ്റഡ് സെർച്ച് ---
 async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
 
     if user_text == "/start":
         await update.message.reply_text(
             "👋 *Prime Finder AI Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "ഷോപ്പിംഗുമായി ബന്ധപ്പെട്ട എന്ത് സംശയങ്ങളും എന്നോട് ചോദിക്കാം. (ഉദാഹരണത്തിന്: *'15000 രൂപയിൽ താഴെ നല്ല ക്യാമറ ഫോൺ ഏതാണ്?'*, *'ബെസ്റ്റ് ബ്ലൂടൂത്ത് സ്പീക്കർ സജസ്റ്റ് ചെയ്യാമോ?'*).\n\n"
-            "നിങ്ങൾക്കായി മികച്ച ഉൽപ്പന്നങ്ങൾ ഞാൻ നിർദ്ദേശിക്കാം!",
+            "ഷോപ്പിംഗുമായി ബന്ധപ്പെട്ട എന്ത് സംശയങ്ങളും മലയാളത്തിലോ ഇംഗ്ലീഷിലോ ചോദിക്കാം. (ഉദാഹരണത്തിന്: *'15000 രൂപയിൽ താഴെ നല്ല 5G ഫോൺ ഏതാണ്?'*, *'ബെസ്റ്റ് ഇയർഫോൺ ഏതാണ്?'*).\n\n"
+            "മികച്ച ഉൽപ്പന്നങ്ങളും ഓഫർ ലിങ്കുകളും ഞാൻ നൽകാം!",
             parse_mode="Markdown",
         )
         return
 
-    # ഉപഭോക്താവിന് ടൈപ്പിംഗ് സ്റ്റാറ്റസ് കാണിക്കുന്നു
     await context.bot.send_chat_action(
         chat_id=update.effective_chat.id, action="typing"
     )
 
     try:
-        # AI പ്രോംപ്റ്റ്
+        # മലയാളം ചോദ്യത്തിൽ നിന്ന് ആമസോണിന് അനുയോജ്യമായ ഇംഗ്ലീഷ് കീവേഡ് കണ്ടെത്തുന്നു
         prompt = (
-            f"You are Prime Finder, an expert, friendly AI shopping assistant for Kerala users. "
-            f"The user asks: '{user_text}'. "
-            f"Reply in a polite, helpful way (use Malayalam or Manglish if the user asks in Malayalam/Manglish, otherwise English). "
-            f"Recommend 1 or 2 top-quality, best-rated products for their need in 2-3 short bullet points. "
-            f"At the very end, extract the exact search keyword for this product on a new line starting with 'KEYWORD:' so I can create affiliate links."
+            f"You are Prime Finder, an expert shopping assistant for Malayalam users.\n"
+            f"User asked: '{user_text}'.\n\n"
+            f"Task 1: Give a helpful, friendly recommendation in simple Malayalam with 2-3 bullet points highlighting top 4★+ rated options.\n"
+            f"Task 2: On the very last line, provide ONLY the clean English search keyword for Amazon search (no special symbols, only 2-4 English words) preceded by 'KEYWORD:'.\n\n"
+            f"Example format:\n"
+            f"നിങ്ങളുടെ ആവശ്യത്തിന് അനുയോജ്യമായ മികച്ച ഫോണുകൾ താഴെ പറയുന്നവയാണ്:\n"
+            f"• Redmi 13C 5G (നല്ല ബാറ്ററി, ഡിസ്‌പ്ലേ)\n"
+            f"• Realme Narzo 60x 5G (മികച്ച ക്യാമറ)\n\n"
+            f"KEYWORD: 5g phone under 15000"
         )
 
         response = ai_model.generate_content(prompt)
         ai_reply = response.text
 
-        # കീവേഡ് എക്സ്ട്രാക്റ്റ് ചെയ്യുന്നു
-        search_keyword = user_text
+        # മലയാളം ഉത്തരവും ഇംഗ്ലീഷ് കീവേഡും വേർതിരിക്കുന്നു
         if "KEYWORD:" in ai_reply:
             parts = ai_reply.split("KEYWORD:")
             main_answer = parts[0].strip()
             search_keyword = parts[1].strip()
         else:
             main_answer = ai_reply.strip()
+            search_keyword = "best sellers electronics"
 
         encoded_query = urllib.parse.quote_plus(search_keyword)
         amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
@@ -91,7 +91,7 @@ async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👉 [Amazon-ൽ നിന്ന് വാങ്ങൂ]({amazon_url})\n"
             f"👉 [Flipkart-ൽ നിന്ന് വാങ്ങൂ]({flipkart_url})\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🛡️ _100% Genuine Brand Warranty & Replacement Available!_"
+            f"🛡️ _100% Original Brand Warranty & Easy Return Available!_"
         )
 
         await update.message.reply_text(
@@ -100,16 +100,15 @@ async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         print(f"⚠️ AI Error: {e}")
-        # AI എറർ വന്നാൽ ഡയറക്റ്റ് സ്മാർട്ട് സെർച്ച് പ്രവർത്തിക്കും
-        encoded_query = urllib.parse.quote_plus(user_text)
-        amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+        fallback_query = urllib.parse.quote_plus(user_text)
+        amazon_url = f"https://www.amazon.in/s?k={fallback_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
         await update.message.reply_text(
-            f"🔍 *{user_text}* തിരഞ്ഞതിനുള്ള ഫലങ്ങൾ:\n👉 [Amazon Verified Deals]({amazon_url})",
+            f"🔍 *ഓഫറുകൾ കാണാൻ താഴെ ക്ലിക്ക് ചെയ്യുക:*\n👉 [Amazon Deals]({amazon_url})",
             parse_mode="Markdown",
         )
 
 
-# --- 2. ഷെഡ്യൂൾഡ് ഓട്ടോ-പോസ്റ്റിംഗ് (ബയിംഗ് ഗൈഡ് & ഗാഡ്‌ജെറ്റ്സ്) ---
+# --- ഷെഡ്യൂൾഡ് ഓട്ടോ-പോസ്റ്റിംഗ് ---
 async def scheduled_curated_posts(bot):
     while True:
         now = datetime.datetime.now()
@@ -119,7 +118,7 @@ async def scheduled_curated_posts(bot):
                 guide_url = f"https://www.amazon.in/s?k=boat+airdopes&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
                 msg = (
                     "🎧 *Weekly Top Picks: Best Earbuds Under ₹1,500* ⭐⭐⭐⭐⭐\n\n"
-                    "മികച്ച സൗണ്ട് ക്വാളിറ്റിയും ഉയർന്ന ബാറ്ററിയുമുള്ള ചോയ്‌സുകൾ:\n"
+                    "മികച്ച സൗണ്ട് ക്വാളിറ്റിയും ഉയർന്ന ബാറ്ററിയുമുള്ള 4★+ ചോയ്‌സുകൾ:\n"
                     f"👉 [4★+ മികച്ച ഇയർബഡ്സ് കാണുക]({guide_url})\n\n"
                     "━━━━━━━━━━━━━━━━━━━━\n"
                     "✅ _100% Original Brand Warranty!_"
@@ -135,7 +134,7 @@ async def scheduled_curated_posts(bot):
         await asyncio.sleep(86400)
 
 
-# --- 3. ചാനൽ ലൈവ് ഡീലുകൾ ---
+# --- ചാനൽ ലൈവ് ഡീലുകൾ ---
 def get_real_url_and_platform(text_or_url):
     if not text_or_url:
         return None, None
