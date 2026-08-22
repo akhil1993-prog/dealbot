@@ -5,6 +5,7 @@ import threading
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import feedparser
+import google.generativeai as genai
 import requests
 from telegram import Update
 from telegram.ext import (
@@ -19,6 +20,11 @@ BOT_TOKEN = "8996059238:AAEkf-zvMgRqUFG0Q-oJ39alhTcOfrldwuA"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
+GEMINI_API_KEY = "AQ.Ab8RN6IY541GeWsvH8LYPBo0mcQHMvpNIir9Ji2SBReyEH8F-Q"
+
+# AI Configuration
+genai.configure(api_key=GEMINI_API_KEY)
+ai_model = genai.GenerativeModel("gemini-1.5-flash")
 
 FEED_URLS = ["https://www.desidime.com/feed", "https://freekaamaal.com/feed"]
 
@@ -31,78 +37,82 @@ def run_web_server():
     server.serve_forever()
 
 
-def clean_and_translate_query(text):
-    text_lower = text.lower()
-    numbers = re.findall(r"\d+", text)
-    budget = f"under {numbers[0]}" if numbers else ""
-
-    if any(
-        w in text_lower
-        for w in ["ഫോൺ", "phone", "mobile", "smart phone", "5g"]
-    ):
-        return f"5G Mobile {budget}".strip()
-    elif any(
-        w in text_lower
-        for w in ["വാച്ച്", "watch", "smart watch", "സ്മാർട്ട് വാച്ച്"]
-    ):
-        return f"Smart Watch {budget}".strip()
-    elif any(
-        w in text_lower
-        for w in ["ഇയർഫോൺ", "earbuds", "airpods", "headset", "earphones"]
-    ):
-        return f"Wireless Earbuds {budget}".strip()
-    elif any(w in text_lower for w in ["ഷൂ", "shoe", "shoes", "sneakers"]):
-        return f"Shoes {budget}".strip()
-    elif any(w in text_lower for w in ["ലാപ്‌ടോപ്പ്", "laptop"]):
-        return f"Laptop {budget}".strip()
-    elif any(w in text_lower for w in ["സ്പീക്കർ", "speaker", "soundbar"]):
-        return f"Bluetooth Speaker {budget}".strip()
-    elif any(w in text_lower for w in ["ട്രിമ്മർ", "trimmer", "shaver"]):
-        return f"Trimmer {budget}".strip()
-    else:
-        eng_only = re.sub(r"[^a-zA-Z0-9\s]", "", text).strip()
-        return eng_only if eng_only else "best seller deals"
-
-
-async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# --- യഥാർത്ഥ AI ചാറ്റ്ബോട്ട് ഫീച്ചർ ---
+async def handle_ai_chat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
 
     if user_text == "/start":
         await update.message.reply_text(
-            "👋 *Prime Finder Smart Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "നിങ്ങൾക്ക് ആവശ്യമുള്ള സാധനത്തിന്റെ പേര് ഇവിടെ അയക്കൂ (ഉദാ: `15000 രൂപയിൽ താഴെ 5G ഫോൺ`, `smart watch`, `shoes`).\n\n"
-            "4★+ റേറ്റിംഗുള്ള മികച്ച ഓഫറുകൾ ഞാൻ നൽകാം!",
+            "👋 *Prime Finder AI Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
+            "ഷോപ്പിംഗുമായി ബന്ധപ്പെട്ട എന്ത് സംശയങ്ങളും എന്നോട് ചോദിക്കാം. (ഉദാ: *'15000 രൂപയിൽ താഴെ നല്ല ക്യാമറ ഫോൺ ഏതാണ്?'*, *'ബെസ്റ്റ് ഇയർബഡ്സ് ഏതാണ്?'*).\n\n"
+            "നിങ്ങൾക്കായി മികച്ച ഉൽപ്പന്നങ്ങൾ ഞാൻ നിർദ്ദേശിക്കാം!",
             parse_mode="Markdown",
         )
         return
 
-    search_keyword = clean_and_translate_query(user_text)
-    encoded_query = urllib.parse.quote_plus(search_keyword)
-
-    # 1. ആമസോൺ 4★+ റേറ്റിംഗ് ഫിൽട്ടർ ലിങ്ക്
-    amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-
-    # 2. ഫ്ലിപ്കാർട്ട് ആപ്പ് / വെബ്സൈറ്റ് നേരിട്ട് ഓപ്പൺ ആകുന്ന ക്ലീൻ സെർച്ച് ലിങ്ക്
-    flipkart_direct_url = f"https://www.flipkart.com/search?q={encoded_query}&sort=popularity"
-
-    reply_text = (
-        f"🎯 *Prime Verified Deals Found!* \n"
-        f"📦 *Product:* _{search_keyword}_\n\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🟠 *Amazon Top Rated (4★+ Only):*\n"
-        f"👉 [Amazon-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({amazon_url})\n\n"
-        f"🔵 *Flipkart Popular Results:*\n"
-        f"👉 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_direct_url})\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"🛡️ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഫാസ്റ്റ് ഡെലിവറിയും!_"
+    # ടൈപ്പിംഗ് സ്റ്റാറ്റസ്
+    await context.bot.send_chat_action(
+        chat_id=update.effective_chat.id, action="typing"
     )
 
-    await update.message.reply_text(
-        reply_text, parse_mode="Markdown", disable_web_page_preview=True
-    )
+    try:
+        # AI പ്രോംപ്റ്റ് (മലയാളം ഉപദേശവും ഇംഗ്ലീഷ് ആമസോൺ കീവേഡും ഉറപ്പാക്കുന്നു)
+        prompt = (
+            f"You are Prime Finder AI, an expert, friendly Malayalam shopping assistant.\n"
+            f"User query: '{user_text}'.\n\n"
+            f"Requirements:\n"
+            f"1. Explain politely in simple Malayalam which product is best and why in 2 concise points.\n"
+            f"2. Suggest 1 or 2 specific top model names (with high ratings).\n"
+            f"3. On the very final line, write: SEARCH_KEY: <exact English search keyword for this product with budget/brand>.\n"
+        )
+
+        response = ai_model.generate_content(prompt)
+        ai_reply = response.text
+
+        # AI മറുപടിയിൽ നിന്ന് ഇംഗ്ലീഷ് കീവേഡ് വേർതിരിക്കുന്നു
+        search_keyword = user_text
+        main_answer = ai_reply
+        if "SEARCH_KEY:" in ai_reply:
+            parts = ai_reply.split("SEARCH_KEY:")
+            main_answer = parts[0].strip()
+            search_keyword = (
+                parts[1].replace("\n", "").replace("*", "").strip()
+            )
+
+        encoded_query = urllib.parse.quote_plus(search_keyword)
+
+        # 4★+ ലിങ്കുകൾ നിർമ്മിക്കുന്നു
+        amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+        flipkart_url = f"https://www.flipkart.com/search?q={encoded_query}&sort=popularity"
+
+        final_response = (
+            f"{main_answer}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛍️ *Verified Buying Links (4★+ Rating):*\n"
+            f"🟠 [Amazon-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({amazon_url})\n"
+            f"🔵 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_url})\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"🛡️ _100% Genuine Brands & Return Available!_"
+        )
+
+        await update.message.reply_text(
+            final_response,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+
+    except Exception as e:
+        print(f"⚠️ AI Chat Error: {e}")
+        # ബാക്കപ്പ് സിസ്റ്റം
+        encoded_query = urllib.parse.quote_plus(user_text)
+        amazon_url = f"https://www.amazon.in/s?k={encoded_query}&tag={AMAZON_TAG}"
+        await update.message.reply_text(
+            f"🔍 *ഓഫറുകൾ പരിശോധിക്കാൻ താഴെ ക്ലിക്ക് ചെയ്യുക:*\n👉 [Amazon Deals]({amazon_url})",
+            parse_mode="Markdown",
+        )
 
 
-# --- ചാനൽ ഡീൽസ് ഓട്ടോമേഷൻ ---
+# --- ചാനൽ ലൈവ് ഡീലുകൾ ---
 def get_real_url_and_platform(text_or_url):
     if not text_or_url:
         return None, None
@@ -110,16 +120,13 @@ def get_real_url_and_platform(text_or_url):
     if amz:
         clean = amz.group(0).split("?")[0]
         return f"{clean}?tag={AMAZON_TAG}", "Amazon"
-
     fk = re.search(r"https?://(?:www\.)?flipkart\.com/[^\s\"\'>]+", text_or_url)
     if fk:
         clean = fk.group(0).split("?")[0]
-        # സിംഗിൾ പ്രൊഡക്റ്റ് ലിങ്കുകൾ EarnKaro വഴി കൃത്യമായി വർക്ക് ചെയ്യും
         return (
             f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}",
             "Flipkart",
         )
-
     return None, None
 
 
@@ -134,13 +141,14 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
             f"{badge} ⭐⭐⭐⭐⭐\n\n"
             f"📦 *Product:* {title}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🛡️ *Quality & Trust Assured:*\n"
-            f"• 🏆 100% Original Brand Product\n"
-            f"• 🏬 Top Verified Sellers Only\n"
-            f"• 🔄 Easy Returns & Replacement Available\n"
+            f"🛡️ *ക്വാളിറ്റി & സെല്ലർ ഫീച്ചറുകൾ:*\n"
+            f"• 🏆 100% ഒറിജിനൽ ബ്രാൻഡ്\n"
+            f"• 🏬 ടോപ്പ് വെരിഫൈഡ് സെല്ലർമാർ മാത്രം\n"
+            f"• 🔄 ഈസി റിട്ടേൺ ലഭ്യമാണ്\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
             f"🛒 *ഓർഡർ ചെയ്യാൻ ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
-            f"👉 [{platform_name}-ൽ നിന്ന് വാങ്ങൂ]({final_link})"
+            f"👉 [{platform_name}-ൽ നിന്ന് വാങ്ങൂ]({final_link})\n\n"
+            f"🤖 _എന്ത് സംശയങ്ങൾക്കും ബോട്ടിനോട് നേരിട്ട് ചോദിക്കൂ!_"
         )
         await bot.send_message(
             chat_id=CHANNEL_ID,
@@ -183,9 +191,9 @@ async def channel_deals_loop(bot):
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
     application.add_handler(
-        MessageHandler(filters.TEXT & (~filters.COMMAND), handle_user_query)
+        MessageHandler(filters.TEXT & (~filters.COMMAND), handle_ai_chat)
     )
-    application.add_handler(CommandHandler("start", handle_user_query))
+    application.add_handler(CommandHandler("start", handle_ai_chat))
 
     asyncio.create_task(channel_deals_loop(application.bot))
 
