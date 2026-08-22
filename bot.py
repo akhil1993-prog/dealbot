@@ -36,7 +36,7 @@ def detect_category_and_platforms(text):
     numbers = re.findall(r"\d+", text)
     budget = f"under {numbers[0]}" if numbers else ""
 
-    # ഫാഷൻ & വസ്ത്രങ്ങൾ (Amazon, Flipkart, Myntra, Ajio)
+    # ഫാഷൻ & വസ്ത്രങ്ങൾ
     if any(
         w in text_lower
         for w in [
@@ -65,7 +65,7 @@ def detect_category_and_platforms(text):
         )
         return "fashion", f"{clean_key} {budget}".strip()
 
-    # ബ്യൂട്ടി & സ്കിൻകെയർ (Amazon, Nykaa, Myntra)
+    # ബ്യൂട്ടി & സ്കിൻകെയർ
     elif any(
         w in text_lower
         for w in [
@@ -87,7 +87,7 @@ def detect_category_and_platforms(text):
         )
         return "beauty", f"{clean_key} {budget}".strip()
 
-    # ഇലക്ട്രോണിക്സ് & ഗാഡ്‌ജെറ്റ്സ് (Amazon, Flipkart, Croma)
+    # ഇലക്ട്രോണിക്സ് & ഗാഡ്‌ജെറ്റ്സ്
     elif any(
         w in text_lower
         for w in [
@@ -109,7 +109,11 @@ def detect_category_and_platforms(text):
             "speaker",
         ]
     ):
-        if "phone" in text_lower or "mobile" in text_lower or "ഫോൺ" in text_lower:
+        if (
+            "phone" in text_lower
+            or "mobile" in text_lower
+            or "ഫോൺ" in text_lower
+        ):
             key = f"5G smartphone {budget}"
         elif "watch" in text_lower or "വാച്ച്" in text_lower:
             key = f"smartwatch {budget}"
@@ -124,20 +128,20 @@ def detect_category_and_platforms(text):
             key = f"{clean_key} {budget}"
         return "electronics", key.strip()
 
-    # മറ്റുള്ളവ
     else:
         clean_key = re.sub(r"[^a-zA-Z0-9\s]", "", text).strip()
         key = clean_key if clean_key else "top deals"
         return "general", f"{key} {budget}".strip()
 
 
+# --- ഡയറക്റ്റ് സെർച്ച് റൂട്ടിംഗ് (ഹോം പേജ് പ്രോബ്ലം ഒഴിവാക്കുന്നു) ---
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
 
     if user_text == "/start":
         await update.message.reply_text(
             "👋 *Prime Finder All-In-One Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "Amazon, Flipkart, Myntra, Ajio, Nykaa, Croma തുടങ്ങിയ എല്ലാ പ്ലാറ്റ്‌ഫോമുകളിലെയും മികച്ച ഓഫറുകൾ അറിയാൻ സാധനത്തിന്റെ പേര് ഇവിടെ അയക്കൂ!\n\n"
+            "Amazon, Flipkart, Myntra, Ajio, Nykaa തുടങ്ങിയ പ്ലാറ്റ്‌ഫോമുകളിലെ കൃത്യമായ ഫലങ്ങൾ ലഭിക്കാൻ സാധനത്തിന്റെ പേര് ഇവിടെ അയക്കൂ!\n\n"
             "ഉദാഹരണം: `5G mobile under 15000`, `running shoes`, `lipstick`, `smart watch`",
             parse_mode="Markdown",
         )
@@ -146,34 +150,30 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat_type, search_keyword = detect_category_and_platforms(user_text)
     encoded_query = urllib.parse.quote_plus(search_keyword)
 
-    # പ്ലാറ്റ്‌ഫോം ലിങ്കുകൾ തയ്യാറാക്കുന്നു
+    # 100% നേരിട്ട് ആപ്പ്/സ്റ്റോർ സെർച്ച് റിസൾട്ടുകൾ ഓപ്പൺ ആകുന്ന ഒറിജിനൽ ലിങ്കുകൾ
     amazon_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
     flipkart_url = f"https://www.flipkart.com/search?q={encoded_query}&sort=popularity"
-    myntra_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.myntra.com/{encoded_query}"
-    ajio_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.ajio.com/search/?text={encoded_query}"
-    nykaa_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.nykaa.com/search/result/?q={encoded_query}"
-    croma_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.croma.com/searchB?q={encoded_query}"
-
-    links_text = ""
+    myntra_url = f"https://www.myntra.com/{encoded_query}"
+    ajio_url = f"https://www.ajio.com/search/?text={encoded_query}"
+    nykaa_url = f"https://www.nykaa.com/search/result/?q={encoded_query}"
 
     if cat_type == "fashion":
         links_text = (
-            f"🟠 [Amazon Fashion Deals]({amazon_url})\n"
+            f"🟠 [Amazon Fashion Deals (4★+)]({amazon_url})\n"
             f"🔵 [Flipkart Fashion Offers]({flipkart_url})\n"
-            f"🔴 [Myntra Authentic Brands]({myntra_url})\n"
-            f"🟡 [Ajio Trendy Collection]({ajio_url})"
+            f"🔴 [Myntra Trending Collection]({myntra_url})\n"
+            f"🟡 [Ajio Exclusive Fashion]({ajio_url})"
         )
     elif cat_type == "beauty":
         links_text = (
-            f"🟠 [Amazon Beauty Deals]({amazon_url})\n"
-            f"🌸 [Nykaa 100% Genuine]({nykaa_url})\n"
+            f"🟠 [Amazon Beauty Deals (4★+)]({amazon_url})\n"
+            f"🌸 [Nykaa 100% Genuine Store]({nykaa_url})\n"
             f"🔴 [Myntra Beauty Collection]({myntra_url})"
         )
     elif cat_type == "electronics":
         links_text = (
-            f"🟠 [Amazon Top Rated (4★+)]({amazon_url})\n"
-            f"🔵 [Flipkart Assured Deals]({flipkart_url})\n"
-            f"🟢 [Croma Electronics Hub]({croma_url})"
+            f"🟠 [Amazon Top Rated (4★+ Only)]({amazon_url})\n"
+            f"🔵 [Flipkart Assured Deals]({flipkart_url})"
         )
     else:
         links_text = (
@@ -186,7 +186,7 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🎯 *Prime Verified Multi-Store Results:* \n"
         f"📦 *Product:* _{search_keyword}_\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🛍️ *വിവിധ സ്റ്റോറുകളിലെ ഓഫറുകൾ താരതമ്യം ചെയ്യൂ:*\n\n"
+        f"🛍️ *വിവിധ സ്റ്റോറുകളിൽ നേരിട്ട് പരിശോധിക്കാൻ ക്ലിക്ക് ചെയ്യുക:*\n\n"
         f"{links_text}\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"🛡️ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഫാസ്റ്റ് ഡെലിവറിയും!_"
@@ -197,7 +197,7 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# --- ചാനൽ ലൈവ് ഡീലുകൾ ഓട്ടോമേഷൻ ---
+# --- ചാനൽ ലൈവ് ഡീലുകൾ (EarnKaro വഴി യഥാർത്ഥ പ്രൊഡക്റ്റ് ലിങ്കുകൾ പോസ്റ്റ് ചെയ്യുന്നു) ---
 def get_real_url_and_platform(text_or_url):
     if not text_or_url:
         return None, None
@@ -205,6 +205,7 @@ def get_real_url_and_platform(text_or_url):
     if amz:
         clean = amz.group(0).split("?")[0]
         return f"{clean}?tag={AMAZON_TAG}", "Amazon"
+
     fk = re.search(r"https?://(?:www\.)?flipkart\.com/[^\s\"\'>]+", text_or_url)
     if fk:
         clean = fk.group(0).split("?")[0]
@@ -212,6 +213,7 @@ def get_real_url_and_platform(text_or_url):
             f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}",
             "Flipkart",
         )
+
     myn = re.search(r"https?://(?:www\.)?myntra\.com/[^\s\"\'>]+", text_or_url)
     if myn:
         clean = myn.group(0).split("?")[0]
@@ -219,6 +221,7 @@ def get_real_url_and_platform(text_or_url):
             f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}",
             "Myntra",
         )
+
     return None, None
 
 
@@ -241,7 +244,7 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
             f"🛒 *ഓർഡർ ചെയ്യാൻ ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
             f"👉 [{platform_name}-ൽ നിന്ന് വാങ്ങൂ]({final_link})\n\n"
-            f"💡 _മറ്റ് സൈറ്റുകളിലെ ഓഫറുകൾ അറിയാൻ ബോട്ടിന് മെസ്സേജ് അയക്കുക!_"
+            f"💡 _മറ്റ് സാധനങ്ങൾ സെർച്ച് ചെയ്യാൻ ബോട്ടിന് പേര് അയക്കുക!_"
         )
         await bot.send_message(
             chat_id=CHANNEL_ID,
