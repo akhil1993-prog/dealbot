@@ -27,9 +27,12 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-FEED_URLS = ["https://www.desidime.com/feed", "https://freekaamaal.com/feed"]
-posted_deals = set()
+FEED_URLS = [
+    "https://www.desidime.com/feed",
+    "https://freekaamaal.com/feed"
+]
 
+posted_deals = set()
 IST = timezone(timedelta(hours=5, minutes=30))
 
 def run_web_server():
@@ -37,7 +40,7 @@ def run_web_server():
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- സ്ഥിരമായ മെനു കീബോർഡ് (Persistent Menu Keyboard) ---
+# --- സ്ഥിരമായ മെനു കീബോർഡ് ---
 def get_main_menu_keyboard():
     keyboard = [
         [KeyboardButton("📱 Mobiles & 5G"), KeyboardButton("🎧 Earbuds & Audio")],
@@ -49,7 +52,7 @@ def get_main_menu_keyboard():
 # --- കാറ്റഗറി ഡിറ്റക്ഷൻ ---
 def detect_category_and_query(text):
     text_lower = text.lower()
-    numbers = re.findall(r"\d+", text)
+    numbers = re.findall(r'\d+', text)
     budget = f"under {numbers[0]}" if numbers else ""
 
     if "mobile" in text_lower or "5g" in text_lower or "ഫോൺ" in text_lower:
@@ -65,17 +68,17 @@ def detect_category_and_query(text):
     elif "loot" in text_lower or "today" in text_lower:
         return "loot", "deals of the day"
     else:
-        clean = re.sub(r"[^a-zA-Z0-9\s]", "", text).strip()
+        clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
         return "general", f"{clean if clean else 'top deals'} {budget}".strip()
 
-# --- യൂസർ ചാറ്റ് & മെനു ഹാൻഡ്‌ലർ ---
+# --- യൂസർ സെർച്ച് ഹാൻഡ്‌ലർ ---
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text.strip()
 
     if user_text == "/start":
         welcome_text = (
             "👋 *Prime Finder Smart Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "താഴെ കാണുന്ന മെനുവിൽ നിന്ന് നിങ്ങൾക്ക് ആവശ്യമുള്ള കാറ്റഗറി തിരഞ്ഞെടുക്കുക, അല്ലെങ്കിൽ സാധനത്തിന്റെ പേര് ഇവിടെ ടൈപ്പ് ചെയ്യുക."
+            "താഴെ കാണുന്ന മെനുവിൽ നിന്ന് കാറ്റഗറി തിരഞ്ഞെടുക്കുക, അല്ലെങ്കിൽ സാധനത്തിന്റെ പേര് ഇവിടെ ടൈപ്പ് ചെയ്യുക."
         )
         await update.message.reply_text(
             welcome_text,
@@ -87,12 +90,10 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cat_type, search_query = detect_category_and_query(user_text)
     encoded = urllib.parse.quote_plus(search_query)
 
-    # ഇൻലൈൻ ബട്ടണുകൾ നിർമ്മിക്കുന്നു
     amazon_url = f"https://www.amazon.in/s?k={encoded}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
     flipkart_url = f"https://www.flipkart.com/search?q={encoded}&sort=popularity"
     myntra_url = f"https://www.myntra.com/{encoded}"
 
-    inline_buttons = []
     if cat_type == "fashion":
         inline_buttons = [
             [InlineKeyboardButton("🟠 Buy on Amazon (4★+)", url=amazon_url)],
@@ -136,25 +137,42 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# --- ചാനൽ ലൈവ് ഡീലുകൾ (ഇൻലൈൻ ബട്ടണുകളോടെ) ---
-def get_real_url_and_platform(text_or_url):
-    if not text_or_url:
-        return None, None
-    amz = re.search(r"https?://(?:www\.)?amazon\.in/[^\s\"\'>]+", text_or_url)
+# --- ലിങ്കും ചിത്രവും വേർതിരിച്ചെടുക്കുന്നു ---
+def extract_deal_info(entry):
+    content = f"{getattr(entry, 'link', '')} {getattr(entry, 'summary', '')}"
+    
+    # 1. ചിത്രങ്ങൾ കണ്ടെത്തുന്നു
+    image_url = None
+    if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
+        image_url = entry.media_content[0].get('url')
+    if not image_url and hasattr(entry, 'enclosures') and len(entry.enclosures) > 0:
+        image_url = entry.enclosures[0].get('href')
+    if not image_url:
+        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', getattr(entry, 'summary', ''))
+        if img_match:
+            image_url = img_match.group(1)
+
+    # 2. അഫിലിയേറ്റ് ലിങ്ക് തയ്യാറാക്കുന്നു
+    final_link, platform = None, None
+    amz = re.search(r'https?://(?:www\.)?amazon\.in/[^\s"\'>]+', content)
     if amz:
         clean = amz.group(0).split('?')[0]
-        return f"{clean}?tag={AMAZON_TAG}", "Amazon"
-    fk = re.search(r"https?://(?:www\.)?flipkart\.com/[^\s\"\'>]+", text_or_url)
-    if fk:
-        clean = fk.group(0).split('?')[0]
-        return f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Flipkart"
-    myn = re.search(r"https?://(?:www\.)?myntra\.com/[^\s\"\'>]+", text_or_url)
-    if myn:
-        clean = myn.group(0).split('?')[0]
-        return f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Myntra"
-    return None, None
+        final_link, platform = f"{clean}?tag={AMAZON_TAG}", "Amazon"
+    else:
+        fk = re.search(r'https?://(?:www\.)?flipkart\.com/[^\s"\'>]+', content)
+        if fk:
+            clean = fk.group(0).split('?')[0]
+            final_link, platform = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Flipkart"
+        else:
+            myn = re.search(r'https?://(?:www\.)?myntra\.com/[^\s"\'>]+', content)
+            if myn:
+                clean = myn.group(0).split('?')[0]
+                final_link, platform = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Myntra"
 
-async def send_deal_to_telegram(bot, title, final_link, platform_name):
+    return final_link, platform, image_url
+
+# --- ഇമേജ് കാർഡ് സഹിതം ചാനൽ പോസ്റ്റിംഗ് ---
+async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url):
     try:
         badges = {
             "Amazon": "🟠 *Amazon Verified Deal*",
@@ -163,14 +181,14 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
         }
         badge = badges.get(platform_name, "🛍️ *Prime Verified Deal*")
         
-        message_text = (
+        caption = (
             f"{badge} ⭐⭐⭐⭐⭐\n\n"
             f"📦 *Product:* {title}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🛡️ *Features & Trust:*\n"
-            f"• 🏆 100% Original Brand Product\n"
+            f"🛡️ *Trust & Quality:*\n"
+            f"• 🏆 100% Genuine Original Brand\n"
             f"• 🏬 Top Verified Sellers Only\n"
-            f"• 🔄 Easy Returns & Fast Delivery\n"
+            f"• 🔄 Easy Replacement Available\n"
             f"━━━━━━━━━━━━━━━━━━━━"
         )
 
@@ -178,9 +196,23 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
             [InlineKeyboardButton(f"🛒 Buy on {platform_name} Now", url=final_link)]
         ])
 
+        # ഇമേജ് ഉണ്ടെങ്കിൽ ഫോട്ടോ കാർഡായി അയക്കും
+        if image_url:
+            try:
+                await bot.send_photo(
+                    chat_id=CHANNEL_ID,
+                    photo=image_url,
+                    caption=caption,
+                    parse_mode="Markdown",
+                    reply_markup=inline_btn
+                )
+                return
+            except Exception:
+                pass  # ഫോട്ടോ ലോഡ് ആയില്ലെങ്കിൽ താഴെ ടെക്സ്റ്റ് ആയി അയക്കും
+
         await bot.send_message(
             chat_id=CHANNEL_ID,
-            text=message_text,
+            text=caption,
             parse_mode="Markdown",
             reply_markup=inline_btn,
             disable_web_page_preview=False
@@ -195,13 +227,10 @@ async def check_all_feeds(bot):
             resp = requests.get(url, headers=headers, timeout=10)
             feed = feedparser.parse(resp.content)
             for entry in feed.entries[:8]:
-                title = getattr(entry, "title", "Special Deal")
-                link = getattr(entry, "link", "")
-                summary = getattr(entry, "summary", "")
-                content = f"{link} {summary}"
-                final_link, platform = get_real_url_and_platform(content)
+                title = getattr(entry, 'title', 'Special Deal')
+                final_link, platform, image_url = extract_deal_info(entry)
                 if final_link and final_link not in posted_deals:
-                    await send_deal_to_telegram(bot, title, final_link, platform)
+                    await send_deal_to_telegram(bot, title, final_link, platform, image_url)
                     posted_deals.add(final_link)
                     await asyncio.sleep(6)
         except Exception as e:
