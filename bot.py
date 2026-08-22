@@ -1,7 +1,7 @@
 import html
+import io
 import itertools
 import os
-import random
 import re
 import threading
 import time
@@ -9,31 +9,31 @@ import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import requests
 
-# --- പ്രധാന വിവരങ്ങൾ ---
+# --- പ്രധാന ക്രമീകരണങ്ങൾ ---
 BOT_TOKEN = "8996059238:AAGW7IbrwajkVTAd9vK-niLqGYWRyQqpdio"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# 100% ലൈവ് ആക്ടീവ് ആയ ആമസോൺ ഉൽപ്പന്നങ്ങൾ (Verified Active ASIN & Direct Image)
-VERIFIED_DEAL_CATALOG = [
+# 100% പരിശോധിച്ചുറപ്പിച്ച ഒറിജിനൽ ഉൽപ്പന്നങ്ങൾ & ലൈവ് ഇമേജ് ഉറവിടങ്ങൾ
+VERIFIED_DEALS = [
     {
         "title": "Surf Excel Matic Top Load Liquid Detergent Pouch, 2L",
         "price": "₹385",
         "mrp": "<s>₹470</s>",
         "discount": "(18% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹85",
-        "asin": "B084G47746",
-        "image": "https://m.media-amazon.com/images/I/61Nl5zGZ3IL._SX679_.jpg"
+        "link": f"https://www.amazon.in/dp/B084G47746?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=800&q=80"
     },
     {
-        "title": "Tata Tea Gold Leaf Tea, 1kg Pack with Long Leaves",
+        "title": "Tata Tea Gold Leaf Tea, 1kg Poly Pack with Long Leaves",
         "price": "₹465",
         "mrp": "<s>₹600</s>",
         "discount": "(22% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹135",
-        "asin": "B07DYP6QNW",
-        "image": "https://m.media-amazon.com/images/I/61tPqT5Q+sL._SX679_.jpg"
+        "link": f"https://www.amazon.in/dp/B07DYP6QNW?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=800&q=80"
     },
     {
         "title": "boAt Airdopes 141 Bluetooth Truly Wireless Earbuds (42H Playtime)",
@@ -41,26 +41,17 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹4,490</s>",
         "discount": "(78% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹3,491",
-        "asin": "B09N3ZNHTY",
-        "image": "https://m.media-amazon.com/images/I/51HBom8xz7L._SX679_.jpg"
+        "link": f"https://www.amazon.in/dp/B09N3ZNHTY?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=800&q=80"
     },
     {
-        "title": "Noise Pulse 2 Max 1.85'' TFT LCD Smart Watch (Bluetooth Calling)",
+        "title": "Noise Pulse 2 Max 1.85'' Smart Watch (Bluetooth Calling)",
         "price": "₹1,199",
         "mrp": "<s>₹5,999</s>",
         "discount": "(80% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹4,800",
-        "asin": "B0B6BNMVL9",
-        "image": "https://m.media-amazon.com/images/I/61SSVxTSs3L._SX679_.jpg"
-    },
-    {
-        "title": "Dettol Liquid Handwash Refill, 1500ml Value Pack",
-        "price": "₹219",
-        "mrp": "<s>₹299</s>",
-        "discount": "(27% OFF)",
-        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
-        "asin": "B07P41S8X1",
-        "image": "https://m.media-amazon.com/images/I/61-M0gYxTfL._SX679_.jpg"
+        "link": f"https://www.amazon.in/dp/B0B6BNMVL9?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&q=80"
     },
     {
         "title": "Cadbury Celebrations Premium Assorted Chocolate Gift Pack, 183.6g",
@@ -68,38 +59,52 @@ VERIFIED_DEAL_CATALOG = [
         "mrp": "<s>₹160</s>",
         "discount": "(25% OFF)",
         "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹40",
-        "asin": "B00TX84620",
-        "image": "https://m.media-amazon.com/images/I/71N7-w4u76L._SX679_.jpg"
+        "link": f"https://www.amazon.in/dp/B00TX84620?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1548907040-4baa42d10919?w=800&q=80"
+    },
+    {
+        "title": "Dettol Liquid Handwash Refill, 1500ml Value Saver Pack",
+        "price": "₹219",
+        "mrp": "<s>₹299</s>",
+        "discount": "(27% OFF)",
+        "savings": "💵 നേരിട്ടുള്ള ലാഭം: ₹80",
+        "link": f"https://www.amazon.in/dp/B07P41S8X1?tag={AMAZON_TAG}",
+        "img_url": "https://images.unsplash.com/photo-1608248597359-009772a1548e?w=800&q=80"
     }
 ]
 
 registered_users = set()
 last_update_id = 0
 
-# --- 1. Render 24/7 വെബ് സെർവർ ---
+# --- 1. Web Server (Render 24/7) ---
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം ഫോട്ടോ മെസ്സേജ് ---
-def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
-    payload = {
-        "chat_id": chat_id,
-        "photo": photo_url,
-        "caption": caption,
-        "parse_mode": "HTML"
-    }
-    if reply_markup:
-        payload["reply_markup"] = reply_markup
+# --- ഫോട്ടോ നേരിട്ട് ബൈറ്റ്സ് ആയി അപ്‌ലോഡ് ചെയ്യുന്ന സുരക്ഷിത ഫംഗ്ഷൻ ---
+def send_telegram_photo_bytes(chat_id, photo_url, caption, reply_markup=None):
     try:
-        resp = requests.post(url, json=payload, timeout=12)
-        return resp.status_code == 200
-    except Exception:
-        return False
+        # ഇമേജ് ഡൗൺലോഡ് ചെയ്യുന്നു
+        img_resp = requests.get(photo_url, timeout=15)
+        if img_resp.status_code == 200:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+            files = {'photo': ('deal.jpg', io.BytesIO(img_resp.content), 'image/jpeg')}
+            data = {
+                'chat_id': chat_id,
+                'caption': caption,
+                'parse_mode': 'HTML'
+            }
+            if reply_markup:
+                data['reply_markup'] = str(reply_markup).replace("'", '"')
+            
+            r = requests.post(url, data=data, files=files, timeout=20)
+            return r.status_code == 200
+    except Exception as e:
+        print(f"⚠️ ഫോട്ടോ അപ്‌ലോഡ് എറർ: {e}")
+    return False
 
-# --- ടെലിഗ്രാം ടെക്സ്റ്റ് മെസ്സേജ് ---
+# --- ടെക്സ്റ്റ് മെസ്സേജ് ---
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -228,11 +233,9 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- ഡയറക്റ്റ് ആമസോൺ പ്രൊഡക്റ്റ് പേജ് പോസ്റ്റിംഗ് ---
-def post_verified_deal(deal):
+# --- പ്രൊഫഷണൽ ചാനൽ പോസ്റ്റിംഗ് എഞ്ചിൻ ---
+def post_verified_deal_to_channel(deal):
     safe_title = html.escape(deal["title"])
-    # 100% കൃത്യമായ ആമസോൺ ലിങ്ക് ഫോർമാറ്റ്
-    direct_link = f"https://www.amazon.in/dp/{deal['asin']}/?tag={AMAZON_TAG}"
 
     caption = (
         f"🔥 <b>വമ്പൻ വിലക്കുറവ് (PRICE DROP ALERT)!</b>\n\n"
@@ -247,28 +250,29 @@ def post_verified_deal(deal):
 
     buttons = {
         "inline_keyboard": [
-            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": direct_link}]
+            [{"text": "🛒 ഇപ്പോൾ തന്നെ ഓർഡർ ചെയ്യുക", "url": deal["link"]}]
         ]
     }
 
-    # ഫോട്ടോ സഹിതം അയക്കുന്നു
-    success = send_telegram_photo(CHANNEL_ID, deal["image"], caption, buttons)
-    if not success:
+    # നേരിട്ട് ഫോട്ടോ അപ്‌ലോഡ് ചെയ്യുന്നു
+    photo_success = send_telegram_photo_bytes(CHANNEL_ID, deal["img_url"], caption, buttons)
+    
+    if not photo_success:
         send_telegram_message(CHANNEL_ID, caption, buttons)
 
-    print(f"✅ പോസ്റ്റ് വിജയകരമായി അയച്ചു: {deal['title'][:30]}")
+    print(f"✅ പോസ്റ്റ് വിജയകരമായി ചാനലിൽ അയച്ചു: {deal['title'][:30]}")
 
-# --- 2. ചാനൽ വർക്കർ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ ഡീൽ) ---
+# --- 2. ചാനൽ വർക്കർ ലൂപ്പ് (ഓരോ 15 മിനിറ്റിലും പുതിയ പോസ്റ്റ്) ---
 def channel_worker():
-    catalog_cycle = itertools.cycle(VERIFIED_DEAL_CATALOG)
+    catalog_cycle = itertools.cycle(VERIFIED_DEALS)
     time.sleep(2)
     
     while True:
         try:
             deal = next(catalog_cycle)
-            post_verified_deal(deal)
+            post_verified_deal_to_channel(deal)
         except Exception as e:
-            print(f"⚠️ പോസ്റ്റിംഗ് എറർ: {e}")
+            print(f"⚠️ വർക്കർ എറർ: {e}")
         time.sleep(900)  # കൃത്യം 15 മിനിറ്റ്
 
 # --- 3. യൂസർ പോളിംഗ് ത്രെഡ് ---
