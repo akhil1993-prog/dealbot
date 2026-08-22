@@ -1,9 +1,8 @@
-import asyncio
-from datetime import datetime, timezone, timedelta
 import html
 import os
 import re
 import threading
+import time
 import urllib.parse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import feedparser
@@ -15,7 +14,7 @@ CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 
-# നേരിട്ടുള്ള ഡീൽ ഫീഡുകൾ
+# നേരിട്ടുള്ള ലൈവ് ഡീൽ ഫീഡുകൾ
 FEED_URLS = [
     "https://www.desidime.com/feed",
     "https://freekaamaal.com/feed",
@@ -26,22 +25,20 @@ posted_deals = set()
 registered_users = set()
 last_update_id = 0
 
-IST = timezone(timedelta(hours=5, minutes=30))
-
-# ഒഴിവാക്കേണ്ട ബ്ലോഗ് / അനാവശ്യ വാക്കുകൾ (Article Filter)
+# ഒഴിവാക്കേണ്ട ബ്ലോഗ് / ആർട്ടിക്കിൾ വാക്കുകൾ
 IGNORE_WORDS = [
     "review", "how to", "guide", "top 10", "best budget hosting", 
     "meaning than size", "coupon code", "promo code", "hostinger",
     "domain", "server", "web hosting", "tips", "tricks"
 ]
 
-# --- വെബ് സെർവർ ---
+# --- 1. Render 24/7 വെബ് സെർവർ ---
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ടെലിഗ്രാം മെസ്സേജ് (HTML) ---
+# --- ടെലിഗ്രാം മെസ്സേജ് അയക്കുന്ന ഫംഗ്ഷൻ (HTML) ---
 def send_telegram_message(chat_id, text, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
@@ -53,11 +50,13 @@ def send_telegram_message(chat_id, text, reply_markup=None):
     if reply_markup:
         payload["reply_markup"] = reply_markup
     try:
-        requests.post(url, json=payload, timeout=12)
+        r = requests.post(url, json=payload, timeout=10)
+        return r.status_code == 200
     except Exception as e:
         print(f"⚠️ മെസ്സേജ് എറർ: {e}")
+        return False
 
-# --- ടെലിഗ്രാം ഫോട്ടോ ---
+# --- ടെലിഗ്രാം ഫോട്ടോ അയക്കുന്ന ഫംഗ്ഷൻ ---
 def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
     payload = {
@@ -69,7 +68,7 @@ def send_telegram_photo(chat_id, photo_url, caption, reply_markup=None):
     if reply_markup:
         payload["reply_markup"] = reply_markup
     try:
-        resp = requests.post(url, json=payload, timeout=12)
+        resp = requests.post(url, json=payload, timeout=10)
         return resp.status_code == 200
     except Exception:
         return False
@@ -187,39 +186,36 @@ def process_user_message(message):
     )
     send_telegram_message(chat_id, reply_msg, buttons)
 
-# --- ഡീൽ എക്സ്ട്രാക്ഷൻ & സ്മാർട്ട് ഫിൽട്ടറിംഗ് ---
+# --- ഡീൽ എക്സ്ട്രാക്ഷൻ എഞ്ചിൻ ---
 def extract_deal_info(entry):
     raw_title = getattr(entry, 'title', '')
     clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
     clean_title = html.unescape(clean_title)
 
-    content = f"{clean_title} {getattr(entry, 'summary', '')}".lower()
+    content = f"{clean_title} {getattr(entry, 'summary', '')}"
+    content_lower = content.lower()
 
-    # 1. ബ്ലോഗ് / ആർട്ടിക്കിളുകൾ ഒഴിവാക്കുന്നു
-    if any(bad_word in content for bad_word in IGNORE_WORDS):
+    # ബ്ലോഗ് ആർട്ടിക്കിളുകൾ ഒഴിവാക്കുന്നു
+    if any(bad_word in content_lower for bad_word in IGNORE_WORDS):
         return None, None, None, None, None, None, None
 
-    # 2. വിലയും ഡിസ്കൗണ്ടും കണ്ടെത്തുന്നു
-    prices = [int(p.replace(',', '')) for p in re.findall(r'(?:Rs\.?|INR|₹)\s?(\d+[\d,]*)', content, re.IGNORECASE)]
+    # വില കണ്ടെത്തൽ
+    prices = [int(p.replace(',', '')) for p in re.findall(r'(?:Rs\.?|INR|₹|@|at)\s?(\d+[\d,]*)', content, re.IGNORECASE)]
     discount_match = re.search(r'(\d+)%\s*off', content, re.IGNORECASE)
 
-    # വിലയില്ലാത്ത വെറും ആർട്ടിക്കിളുകൾ പൂർണ്ണമായി ഒഴിവാക്കുന്നു
-    if not prices or prices[0] == 0:
-        return None, None, None, None, None, None, None
-
-    deal_price_num = prices[0]
+    deal_price_num = prices[0] if prices else 0
     mrp_num = prices[1] if len(prices) > 1 else 0
 
-    deal_price = f"₹{deal_price_num}"
+    deal_price = f"₹{deal_price_num}" if deal_price_num > 0 else "ഇന്നത്തെ പ്രത്യേക വില"
     mrp_price = f"<s>₹{mrp_num}</s>" if mrp_num > deal_price_num else ""
 
     savings_text = ""
-    if mrp_num > deal_price_num:
+    if mrp_num > deal_price_num and deal_price_num > 0:
         savings_text = f"💵 നേരിട്ടുള്ള ലാഭം: ₹{mrp_num - deal_price_num}"
 
     discount = f"({discount_match.group(1)}% OFF)" if discount_match else ""
 
-    # ഇമേജ് കണ്ടെത്തൽ
+    # ചിത്രം കണ്ടെത്തൽ
     image_url = None
     if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
         image_url = entry.media_content[0].get('url')
@@ -230,9 +226,9 @@ def extract_deal_info(entry):
         if img_match:
             image_url = img_match.group(1)
 
-    # ആമസോൺ ലിങ്ക് നിർമ്മാണം
+    # അഫിലിയേറ്റ് ലിങ്ക് നിർമ്മാണം
     search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
-    short_search = " ".join(search_words.split()[:4])
+    short_search = " ".join(search_words.split()[:5])
     encoded_query = urllib.parse.quote_plus(short_search)
     final_link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
 
@@ -245,7 +241,7 @@ def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, di
         f"🔥 <b>വമ്പൻ വിലക്കുറവ് (PRICE DROP ALERT)!</b>\n\n"
         f"📦 <b>ഉൽപ്പന്നം:</b> {safe_title}\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"💰 <b>ഇന്നത്തെ ഓഫർ വില:</b> <b>{deal_price}</b> {mrp_price} {discount}\n"
+        f"💰 <b>ഓഫർ വില:</b> <b>{deal_price}</b> {mrp_price} {discount}\n"
     )
     if savings_text:
         caption += f"🎉 <b>{savings_text}</b>\n"
@@ -264,40 +260,46 @@ def post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, di
 
     if image_url:
         if send_telegram_photo(CHANNEL_ID, image_url, caption, buttons):
+            print(f"✅ ഫോട്ടോ പോസ്റ്റ് അയച്ചു: {title[:30]}")
             return
 
     send_telegram_message(CHANNEL_ID, caption, buttons)
+    print(f"✅ ടെക്സ്റ്റ് പോസ്റ്റ് അയച്ചു: {title[:30]}")
 
+# --- ചാനൽ ഫീഡ് ചെക്കർ ---
 def check_feeds_and_post():
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     for url in FEED_URLS:
         try:
-            resp = requests.get(url, headers=headers, timeout=12)
+            resp = requests.get(url, headers=headers, timeout=10)
             if resp.status_code == 200:
                 feed = feedparser.parse(resp.content)
-                for entry in feed.entries[:5]:
+                for entry in feed.entries[:4]:
                     title, final_link, image_url, deal_price, mrp_price, discount, savings_text = extract_deal_info(entry)
                     if final_link and final_link not in posted_deals:
                         post_deal_to_channel(title, final_link, image_url, deal_price, mrp_price, discount, savings_text)
                         posted_deals.add(final_link)
+                        time.sleep(3)
         except Exception as e:
             print(f"⚠️ ഫീഡ് എറർ: {e}")
 
-async def channel_deals_worker():
-    await asyncio.sleep(2)
+# --- 2. ചാനൽ ഡീൽ വർക്കർ ത്രെഡ് ---
+def channel_deals_thread():
+    time.sleep(2)
     while True:
         try:
             check_feeds_and_post()
         except Exception as e:
-            print(f"⚠️ വർക്കർ എറർ: {e}")
-        await asyncio.sleep(120)
+            print(f"⚠️ ചാനൽ ത്രെഡ് എറർ: {e}")
+        time.sleep(120)  # ഓരോ 2 മിനിറ്റിലും പരിശോധിക്കും
 
-async def poll_telegram_updates():
+# --- 3. ടെലിഗ്രാം യൂസർ പോളിംഗ് ത്രെഡ് ---
+def telegram_polling_thread():
     global last_update_id
     requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/deleteWebhook?drop_pending_updates=true")
-    
+
     while True:
         try:
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates?offset={last_update_id + 1}&timeout=10"
@@ -309,14 +311,17 @@ async def poll_telegram_updates():
                     if "message" in item:
                         process_user_message(item["message"])
         except Exception:
-            await asyncio.sleep(2)
-        await asyncio.sleep(0.5)
-
-async def main():
-    asyncio.create_task(channel_deals_worker())
-    await poll_telegram_updates()
+            time.sleep(2)
+        time.sleep(0.5)
 
 if __name__ == "__main__":
-    server_thread = threading.Thread(target=run_web_server, daemon=True)
-    server_thread.start()
-    asyncio.run(main())
+    # വെബ് സെർവർ സ്റ്റാർട്ട് ചെയ്യുന്നു
+    server_t = threading.Thread(target=run_web_server, daemon=True)
+    server_t.start()
+
+    # ചാനൽ ഡീൽ പോസ്റ്റിംഗ് ത്രെഡ് സ്റ്റാർട്ട് ചെയ്യുന്നു
+    channel_t = threading.Thread(target=channel_deals_thread, daemon=True)
+    channel_t.start()
+
+    # യൂസർ ചാറ്റ് പോളിംഗ് സ്റ്റാർട്ട് ചെയ്യുന്നു
+    telegram_polling_thread()
