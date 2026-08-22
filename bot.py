@@ -23,81 +23,66 @@ from telegram.ext import (
     filters,
 )
 
-# --- നിങ്ങളുടെ പുതിയ ബോട്ട് ടോക്കൺ & വിവരങ്ങൾ ---
+# --- പ്രധാന വിവരങ്ങൾ ---
 BOT_TOKEN = "8996059238:AAGW7IbrwajkVTAd9vK-niLqGYWRyQqpdio"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 ADMIN_USER_ID = 0
 
+# ഗ്രോസറി, നിത്യോപയോഗ സാധനങ്ങൾ, പ്രധാന ഡീലുകൾ എന്നിവ ലഭിക്കുന്ന ഫീഡുകൾ
 FEED_URLS = [
     "https://www.desidime.com/feed",
     "https://freekaamaal.com/feed",
-    "https://www.dealofday.in/feed/",
     "https://indiafreestuff.in/feed"
 ]
-
-TRENDS_RSS_URL = "https://trends.google.com/trends/trendingsearches/daily/rss?geo=IN"
 
 posted_deals = set()
 registered_users = set()
 
 IST = timezone(timedelta(hours=5, minutes=30))
 
-# --- വെബ് സെർവർ ---
+# --- വിശ്വസനീയമായ ബ്രാൻഡുകളുടെ ഫിൽട്ടർ (Quality Filter) ---
+TRUSTED_KEYWORDS = [
+    "oil", "sugar", "tea", "soap", "surf", "detergent", "shampoo", "toothpaste",
+    "rice", "ghee", "fortune", "tata", "dettol", "vim", "ariel", "colgate",
+    "cadbury", "nestle", "horlicks", "samsung", "boat", "realme", "redmi", "oneplus",
+    "groceries", "supermarket", "grocery", "combos"
+]
+
 def run_web_server():
     port = int(os.environ.get("PORT", 8080))
     server = HTTPServer(("0.0.0.0", port), SimpleHTTPRequestHandler)
     server.serve_forever()
 
-# --- ട്രെൻഡിംഗ് സെർച്ചുകൾ ---
-def get_trending_searches():
-    try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-        resp = requests.get(TRENDS_RSS_URL, headers=headers, timeout=10)
-        feed = feedparser.parse(resp.content)
-        items = []
-        for entry in feed.entries[:5]:
-            clean_title = re.sub(r'<[^>]+>', '', getattr(entry, 'title', '')).strip()
-            if clean_title and clean_title not in items:
-                items.append(clean_title)
-        if items:
-            return items
-    except Exception:
-        pass
-    return ["5G മൊബൈലുകൾ", "സ്മാർട്ട് വാച്ചുകൾ", "ബ്ലൂടൂത്ത് ഇയർഫോൺ", "ഫാഷൻ ഷൂസുകൾ", "ഡ്രസ്സുകൾ"]
-
-# --- മലയാളം മെനു ബട്ടണുകൾ ---
-def get_simple_malayalam_keyboard():
+# --- നിത്യോപയോഗ സാധനങ്ങൾക്ക് മുൻഗണന നൽകുന്ന മെനു ---
+def get_daily_essential_keyboard():
     keyboard = [
-        [KeyboardButton("📱 5G മൊബൈൽ ഫോണുകൾ"), KeyboardButton("🎧 ബ്ലൂടൂത്ത് ഇയർഫോൺ")],
-        [KeyboardButton("⌚ സ്മാർട്ട് വാച്ചുകൾ"), KeyboardButton("👟 ചെരുപ്പ് & വസ്ത്രങ്ങൾ")],
-        [KeyboardButton("💄 സൗന്ദര്യവർദ്ധക വസ്തുക്കൾ"), KeyboardButton("🔥 ഇന്നത്തെ വമ്പൻ ഓഫറുകൾ")],
-        [KeyboardButton("🌟 കൂടുതൽ ആളുകൾ വാങ്ങുന്നവ")]
+        [KeyboardButton("🛒 നിത്യോപയോഗ സാധനങ്ങൾ (പലചരക്ക്)"), KeyboardButton("🧼 ക്ലീനിംഗ് & സോപ്പുകൾ")],
+        [KeyboardButton("☕ ചായപ്പൊടി & പലഹാരങ്ങൾ"), KeyboardButton("🧴 പേഴ്സണൽ കെയർ & ഷാംപൂ")],
+        [KeyboardButton("📱 മൊബൈൽ & ഇലക്ട്രോണിക്സ്"), KeyboardButton("🔥 സൂപ്പർ വാല്യൂ ഡീലുകൾ")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# --- സാധനം തിരിച്ചറിയൽ ---
+# --- സാധനങ്ങൾ തിരിച്ചറിയൽ ---
 def detect_category_and_query(text):
     text_lower = text.lower()
-    numbers = re.findall(r'\d+', text)
-    budget = f"under {numbers[0]}" if numbers else ""
 
-    if any(w in text_lower for w in ["മൊബൈൽ", "ഫോൺ", "phone", "mobile", "5g"]):
-        return "electronics", f"5G smartphone {budget}".strip(), "5G സ്മാർട്ട്‌ഫോണുകൾ"
-    elif any(w in text_lower for w in ["ഇയർഫോൺ", "ഇയർബഡ്സ്", "earbuds", "earphone", "audio"]):
-        return "electronics", f"wireless earbuds {budget}".strip(), "ബ്ലൂടൂത്ത് ഇയർഫോണുകൾ"
-    elif any(w in text_lower for w in ["വാച്ച്", "watch", "smartwatch"]):
-        return "electronics", f"smartwatch {budget}".strip(), "സ്മാർട്ട് വാച്ചുകൾ"
-    elif any(w in text_lower for w in ["ചെരുപ്പ്", "ഷൂ", "വസ്ത്രങ്ങൾ", "ഷർട്ട്", "സാരി", "shoe", "fashion"]):
-        return "fashion", f"fashion shoes clothing {budget}".strip(), "ഫാഷൻ & ഷൂസ്"
-    elif any(w in text_lower for w in ["സൗന്ദര്യ", "ക്രീം", "lipstick", "beauty", "cream"]):
-        return "beauty", f"beauty skincare {budget}".strip(), "സൗന്ദര്യവർദ്ധക വസ്തുക്കൾ"
-    elif any(w in text_lower for w in ["വമ്പൻ", "ഓഫർ", "loot", "deal"]):
-        return "loot", "deals of the day", "ഇന്നത്തെ മികച്ച ഓഫറുകൾ"
+    if any(w in text_lower for w in ["പലചരക്ക്", "വെളിച്ചെണ്ണ", "പഞ്ചസാര", "അരി", "ഓയിൽ", "grocery", "oil", "rice", "sugar"]):
+        return "grocery", "grocery daily essentials cooking oil sugar tea", "നിത്യോപയോഗ പലചരക്ക് സാധനങ്ങൾ"
+    elif any(w in text_lower for w in ["ക്ലീനിംഗ്", "സോപ്പ്", "വാഷിംഗ്", "soap", "surf", "detergent", "vim", "ariel"]):
+        return "cleaning", "washing powder detergent soap liquid vim surf excel", "ക്ലീനിംഗ് & സോപ്പുകൾ"
+    elif any(w in text_lower for w in ["ചായ", "കാപ്പി", "ബിസ്ക്കറ്റ്", "tea", "coffee", "biscuit", "snacks"]):
+        return "food", "tea powder coffee biscuits snacks cadbury", "ചായപ്പൊടി & ഭക്ഷ്യോൽപ്പന്നങ്ങൾ"
+    elif any(w in text_lower for w in ["ഷാംപൂ", "പേസ്റ്റ്", "shampoo", "toothpaste", "care", "dettol"]):
+        return "personal_care", "shampoo toothpaste body wash dettol soap", "പേഴ്സണൽ കെയർ ഉൽപ്പന്നങ്ങൾ"
+    elif any(w in text_lower for w in ["മൊബൈൽ", "ഫോൺ", "phone", "mobile", "5g", "ഇലക്ട്രോണിക്സ്"]):
+        return "electronics", "5g smartphone electronics", "സ്മാർട്ട്ഫോണുകൾ & ഇലക്ട്രോണിക്സ്"
+    elif any(w in text_lower for w in ["സൂപ്പർ", "വാല്യൂ", "ഡീൽ", "loot", "deal"]):
+        return "super_deals", "amazon fresh supermarket deals combos", "സൂപ്പർ വാല്യൂ ഡീലുകൾ"
     else:
         clean = re.sub(r'[^a-zA-Z0-9\s]', '', text).strip()
-        return "general", f"{clean if clean else 'top deals'} {budget}".strip(), text
+        return "general", f"{clean} grocery essentials".strip(), text
 
 # --- ചാറ്റ് ഹാൻഡ്‌ലർ ---
 async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -108,94 +93,58 @@ async def handle_user_query(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if user_text == "/start":
         welcome_text = (
-            "🙏 *നമസ്കാരം! Prime Finder-ലേക്ക് സ്വാഗതം.*\n\n"
-            "Amazon, Flipkart എന്നിവയിലെ ഏറ്റവും നല്ല സാധനങ്ങളും ഓഫറുകളും അറിയാൻ താഴെ കാണുന്ന ബട്ടണുകളിൽ ക്ലിക്ക് ചെയ്യുക 👇"
+            "🙏 *നമസ്കാരം! Prime Finder ഡെയ്‌ലി സേവിംഗ്സ് അസിസ്റ്റന്റിലേക്ക് സ്വാഗതം.*\n\n"
+            "സൂപ്പർമാർക്കറ്റുകളേക്കാൾ കുറഞ്ഞ വിലയിൽ നിത്യോപയോഗ പലചരക്ക് സാധനങ്ങളും മികച്ച ഓഫറുകളും കണ്ടെത്താൻ താഴെയുള്ള മെനു ഉപയോഗിക്കുക 👇"
         )
-        await update.message.reply_text(welcome_text, parse_mode="Markdown", reply_markup=get_simple_malayalam_keyboard())
-        return
-
-    if "കൂടുതൽ ആളുകൾ" in user_text or "Trending" in user_text:
-        trends = get_trending_searches()
-        msg = "🌟 *ഇന്ന് കൂടുതൽ ആളുകൾ തിരയുന്ന സാധനങ്ങൾ:*\n\n"
-        buttons = []
-        for i, item in enumerate(trends, 1):
-            msg += f"{i}️⃣ *{item}*\n"
-            encoded_item = urllib.parse.quote_plus(item)
-            amz_url = f"https://www.amazon.in/s?k={encoded_item}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-            buttons.append([InlineKeyboardButton(f"👉 {item} കാണുക", url=amz_url)])
-
-        msg += "\n━━━━━━━━━━━━━━━━━━━━\n🛒 *ഓഫറുകൾ കാണാൻ താഴെ ക്ലിക്ക് ചെയ്യുക:*"
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons))
+        await update.message.reply_text(
+            welcome_text,
+            parse_mode="Markdown",
+            reply_markup=get_daily_essential_keyboard()
+        )
         return
 
     cat_type, search_query, display_name = detect_category_and_query(user_text)
     encoded = urllib.parse.quote_plus(search_query)
 
-    amazon_url = f"https://www.amazon.in/s?k={encoded}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
-    flipkart_url = f"https://www.flipkart.com/search?q={encoded}&sort=popularity"
-    myntra_url = f"https://www.myntra.com/{encoded}"
+    amazon_grocery_url = f"https://www.amazon.in/s?k={encoded}&rh=n%3A2454178031%2Cp_72%3A1318476031&tag={AMAZON_TAG}"
+    flipkart_grocery_url = f"https://www.flipkart.com/search?q={encoded}&sort=popularity"
+    amazon_fresh_deals = f"https://www.amazon.in/alm/storefront?almBrandId=ctnow&tag={AMAZON_TAG}"
 
-    if cat_type == "fashion":
-        buttons = [
-            [InlineKeyboardButton("🟠 Amazon-ൽ ഓഫർ കാണുക (4★+)", url=amazon_url)],
-            [InlineKeyboardButton("🔵 Flipkart-ൽ കാണുക", url=flipkart_url)],
-            [InlineKeyboardButton("🔴 Myntra-ൽ കാണുക", url=myntra_url)]
-        ]
-    elif cat_type == "beauty":
-        buttons = [
-            [InlineKeyboardButton("🟠 Amazon-ൽ കാണുക (4★+)", url=amazon_url)],
-            [InlineKeyboardButton("🌸 Nykaa-ൽ കാണുക", url=f"https://www.nykaa.com/search/result/?q={encoded}")]
-        ]
-    elif cat_type == "loot":
-        buttons = [
-            [InlineKeyboardButton("🔥 ആമസോൺ വമ്പൻ ഓഫറുകൾ (Up to 70% Off)", url=f"https://www.amazon.in/deals?tag={AMAZON_TAG}")],
-            [InlineKeyboardButton("⚡ ഫ്ലിപ്കാർട്ട് സൂപ്പർ ഓഫറുകൾ", url="https://www.flipkart.com/offers-list/top-offers")]
-        ]
-    else:
-        buttons = [
-            [InlineKeyboardButton("🟠 ആമസോണിൽ കാണുക (4★+)", url=amazon_url)],
-            [InlineKeyboardButton("🔵 ഫ്ലിപ്കാർട്ടിൽ കാണുക", url=flipkart_url)]
-        ]
+    buttons = [
+        [InlineKeyboardButton("🛒 Amazon Fresh / Super Value ഡീലുകൾ", url=amazon_grocery_url)],
+        [InlineKeyboardButton("🔵 Flipkart Grocery ഓഫറുകൾ", url=flipkart_grocery_url)],
+        [InlineKeyboardButton("⚡ ₹1 & ₹9 മെഗാ ഡീലുകൾ കാണുക", url=amazon_fresh_deals)]
+    ]
 
     reply_msg = (
         f"✅ *{display_name} കണ്ടെത്താൻ സാധിച്ചു!*\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🛡️ *പ്രത്യേകതകൾ:*\n"
-        f"• 4★+ റേറ്റിംഗുള്ള ഉൽപ്പന്നങ്ങൾ മാത്രം\n"
-        f"• 100% ഒറിജിനൽ ബ്രാൻഡുകൾ\n"
+        f"💡 *നിങ്ങൾക്കുള്ള ഗുണങ്ങൾ:*\n"
+        f"• കടകളിലേതിനേക്കാൾ വിലക്കുറവ് (Super Value Packs)\n"
+        f"• 100% ഒറിജിനൽ പാക്കറ്റുകൾ (Tata, Fortune, Surf Excel etc.)\n"
+        f"• ഓർഡർ ചെയ്താൽ നേരിട്ട് വീട്ടിലെത്തും\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"👇 *വില അറിയാൻ താഴെയുള്ള ബട്ടണിൽ അമർത്തുക:*"
+        f"👇 *വില പരിശോധിക്കാനും വാങ്ങാനും താഴെ ക്ലിക്ക് ചെയ്യുക:*"
     )
 
-    await update.message.reply_text(reply_msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(buttons))
+    await update.message.reply_text(
+        reply_msg,
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(buttons)
+    )
 
-# --- അഡ്മിൻ ബ്രോഡ്കാസ്റ്റ് ---
-async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    if ADMIN_USER_ID != 0 and user_id != ADMIN_USER_ID:
-        await update.message.reply_text("⛔ അനുമതിയില്ല.", parse_mode="Markdown")
-        return
-
-    broadcast_msg = update.message.text.replace("/broadcast", "").strip()
-    if not broadcast_msg or not registered_users:
-        return
-
-    for uid in list(registered_users):
-        try:
-            await context.bot.send_message(chat_id=uid, text=f"📢 *അറിയിപ്പ്:*\n\n{broadcast_msg}", parse_mode="Markdown")
-            await asyncio.sleep(0.05)
-        except Exception:
-            pass
-
-    await update.message.reply_text("✅ ബ്രോഡ്കാസ്റ്റ് പൂർത്തിയായി!")
-
-# --- ഡീൽ എക്സ്ട്രാക്ഷൻ ---
+# --- സ്പാം ഫിൽട്ടർ ചെയ്ത് ഡീലുകൾ ശേഖരിക്കുന്നു ---
 def extract_deal_info(entry):
-    raw_title = getattr(entry, 'title', 'Special Verified Deal')
+    raw_title = getattr(entry, 'title', '')
     clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
     clean_title = html.unescape(clean_title)
 
-    content = f"{clean_title} {getattr(entry, 'summary', '')}"
+    content = f"{clean_title} {getattr(entry, 'summary', '')}".lower()
+
+    # ക്വാളിറ്റി ഫിൽട്ടർ: അനാവശ്യ ഉൽപ്പന്നങ്ങളെ ഒഴിവാക്കുന്നു
+    is_useful = any(keyword in content for keyword in TRUSTED_KEYWORDS)
+    if not is_useful:
+        return None, None, None, None, None, None, None
 
     image_url = None
     if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
@@ -214,86 +163,65 @@ def extract_deal_info(entry):
     mrp_price = f"~~₹{prices[1]}~~" if len(prices) > 1 else ""
     discount = f"({discount_match.group(1).upper()})" if discount_match else ""
 
-    final_link, platform = None, "Amazon"
-    amz = re.search(r'https?://(?:www\.)?amazon\.in/[^\s"\'>]+', content)
-    fk = re.search(r'https?://(?:www\.)?flipkart\.com/[^\s"\'>]+', content)
-    myn = re.search(r'https?://(?:www\.)?myntra\.com/[^\s"\'>]+', content)
+    search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
+    short_search = " ".join(search_words.split()[:4])
+    encoded_query = urllib.parse.quote_plus(short_search)
+    final_link = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
 
-    if amz:
-        clean = amz.group(0).split('?')[0]
-        final_link, platform = f"{clean}?tag={AMAZON_TAG}", "Amazon"
-    elif fk:
-        clean = fk.group(0).split('?')[0]
-        final_link, platform = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Flipkart"
-    elif myn:
-        clean = myn.group(0).split('?')[0]
-        final_link, platform = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Myntra"
-    else:
-        search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
-        short_search = " ".join(search_words.split()[:5])
-        encoded_query = urllib.parse.quote_plus(short_search)
-        final_link, platform = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}", "Amazon"
-
-    return clean_title, final_link, platform, image_url, deal_price, mrp_price, discount
+    return clean_title, final_link, "Amazon", image_url, deal_price, mrp_price, discount
 
 # --- ചാനൽ പോസ്റ്റിംഗ് ---
 async def send_deal_to_telegram(bot, title, final_link, platform_name, image_url, deal_price, mrp_price, discount):
     try:
         caption = (
-            f"🛍️ *വിലക്കുറവിൽ വാങ്ങാം!*\n\n"
-            f"📦 *സാധനം:* {title}\n\n"
+            f"🛒 *നിത്യോപയോഗ സാധനങ്ങൾ വിലക്കുറവിൽ!*\n\n"
+            f"📦 *ഉൽപ്പന്നം:* {title}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 *ഇന്നത്തെ ഓഫർ വില:* *{deal_price}* {mrp_price} {discount}\n"
-            f"🛡️ 100% ഒറിജിനൽ ബ്രാൻഡ് വാറന്റി\n"
-            f"🚚 വേഗത്തിൽ വീട്ടിലെത്തിക്കുന്നു\n"
+            f"💰 *ഓഫർ വില:* *{deal_price}* {mrp_price} {discount}\n"
+            f"🛡️ 100% ഒറിജിനൽ പാക്കറ്റ് | വിശ്വസനീയ ബ്രാൻഡ്\n"
+            f"🚚 നേരിട്ട് വീട്ടിലെത്തിക്കുന്നു\n"
             f"━━━━━━━━━━━━━━━━━━━━"
         )
 
         inline_btn = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"🛒 {platform_name}-ൽ നിന്ന് ഓർഡർ ചെയ്യുക", url=final_link)]
+            [InlineKeyboardButton("🛒 ഓഫർ കാണുക & ഓർഡർ ചെയ്യുക", url=final_link)]
         ])
 
         if image_url:
             try:
                 await bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption, parse_mode="Markdown", reply_markup=inline_btn)
-                print(f"✅ ഫോട്ടോ പോസ്റ്റ് അയച്ചു: {title[:30]}")
                 return
             except Exception:
                 pass
 
         await bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode="Markdown", reply_markup=inline_btn, disable_web_page_preview=False)
-        print(f"✅ ടെക്സ്റ്റ് പോസ്റ്റ് അയച്ചു: {title[:30]}")
     except Exception as e:
         print(f"⚠️ പോസ്റ്റിംഗ് എറർ: {e}")
 
-# --- ലൈവ് ഫീഡ് ചെക്കർ ---
 async def check_all_feeds(bot):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
     for url in FEED_URLS:
         try:
             resp = requests.get(url, headers=headers, timeout=12)
             if resp.status_code == 200:
                 feed = feedparser.parse(resp.content)
-                for entry in feed.entries[:4]:
+                for entry in feed.entries[:5]:
                     title, final_link, platform, image_url, deal_price, mrp_price, discount = extract_deal_info(entry)
                     if final_link and final_link not in posted_deals:
                         await send_deal_to_telegram(bot, title, final_link, platform, image_url, deal_price, mrp_price, discount)
                         posted_deals.add(final_link)
                         await asyncio.sleep(4)
         except Exception as e:
-            print(f"⚠️ ഫീഡ് എറർ ({url}): {e}")
+            print(f"⚠️ ഫീഡ് എറർ: {e}")
 
 async def channel_deals_loop(bot):
     await asyncio.sleep(2)
     while True:
         await check_all_feeds(bot)
-        await asyncio.sleep(120)
+        await asyncio.sleep(180)
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("broadcast", broadcast_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_user_query))
     application.add_handler(CommandHandler("start", handle_user_query))
 
