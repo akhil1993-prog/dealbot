@@ -23,14 +23,13 @@ from telegram.ext import (
     filters,
 )
 
-# --- പ്രധാന ക്രമീകരണങ്ങൾ ---
-BOT_TOKEN = "8996059238:AAEkf-zvMgRqUFG0Q-oJ39alhTcOfrldwuA"
+# --- നിങ്ങളുടെ പുതിയ ബോട്ട് ടോക്കൺ & വിവരങ്ങൾ ---
+BOT_TOKEN = "8996059238:AAGW7IbrwajkVTAd9vK-niLqGYWRyQqpdio"
 CHANNEL_ID = "@primefinder_in"
 AMAZON_TAG = "primefinder03-21"
 EARNKARO_USER_ID = "5561136"
 ADMIN_USER_ID = 0
 
-# ബ്ലോക്ക് ആകാത്ത ഫാസ്റ്റ് ലൈവ് ഫീഡുകൾ
 FEED_URLS = [
     "https://www.desidime.com/feed",
     "https://freekaamaal.com/feed",
@@ -190,7 +189,7 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("✅ ബ്രോഡ്കാസ്റ്റ് പൂർത്തിയായി!")
 
-# --- സ്മാർട്ട് ഡീൽ എക്സ്ട്രാക്ഷൻ (No-Fail Affiliate Generator) ---
+# --- ഡീൽ എക്സ്ട്രാക്ഷൻ ---
 def extract_deal_info(entry):
     raw_title = getattr(entry, 'title', 'Special Verified Deal')
     clean_title = re.sub(r'<[^>]+>', '', raw_title).strip()
@@ -198,7 +197,6 @@ def extract_deal_info(entry):
 
     content = f"{clean_title} {getattr(entry, 'summary', '')}"
 
-    # ഇമേജ് കണ്ടെത്തൽ
     image_url = None
     if hasattr(entry, 'media_content') and len(entry.media_content) > 0:
         image_url = entry.media_content[0].get('url')
@@ -209,7 +207,6 @@ def extract_deal_info(entry):
         if img_match:
             image_url = img_match.group(1)
 
-    # വിലയും ഡിസ്കൗണ്ടും
     prices = re.findall(r'(?:Rs\.?|INR|₹)\s?(\d+[\d,]*)', content, re.IGNORECASE)
     discount_match = re.search(r'(\d+%\s*off)', content, re.IGNORECASE)
 
@@ -217,7 +214,6 @@ def extract_deal_info(entry):
     mrp_price = f"~~₹{prices[1]}~~" if len(prices) > 1 else ""
     discount = f"({discount_match.group(1).upper()})" if discount_match else ""
 
-    # ലിങ്കും പ്ലാറ്റ്‌ഫോമും നിർണ്ണയിക്കുന്നു
     final_link, platform = None, "Amazon"
     amz = re.search(r'https?://(?:www\.)?amazon\.in/[^\s"\'>]+', content)
     fk = re.search(r'https?://(?:www\.)?flipkart\.com/[^\s"\'>]+', content)
@@ -233,7 +229,6 @@ def extract_deal_info(entry):
         clean = myn.group(0).split('?')[0]
         final_link, platform = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link={clean}", "Myntra"
     else:
-        # ഡയറക്റ്റ് ലിങ്ക് കിട്ടിയില്ലെങ്കിൽ ടൈറ്റിൽ വെച്ച് നിങ്ങളുടെ അഫിലിയേറ്റ് സെർച്ച് ലിങ്ക് ഉണ്ടാക്കുന്നു
         search_words = re.sub(r'[^a-zA-Z0-9\s]', '', clean_title)
         short_search = " ".join(search_words.split()[:5])
         encoded_query = urllib.parse.quote_plus(short_search)
@@ -291,11 +286,10 @@ async def check_all_feeds(bot):
             print(f"⚠️ ഫീഡ് എറർ ({url}): {e}")
 
 async def channel_deals_loop(bot):
-    # ബോട്ട് ഓൺ ആയി 2 സെക്കൻഡിനകം ആദ്യത്തെ ഫീഡ് റൺ ചെയ്യും
     await asyncio.sleep(2)
     while True:
         await check_all_feeds(bot)
-        await asyncio.sleep(120)  # ഓരോ 2 മിനിറ്റിലും പുതിയ ഡീലുകൾ പരിശോധിക്കും
+        await asyncio.sleep(120)
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
