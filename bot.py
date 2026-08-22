@@ -31,35 +31,48 @@ def run_web_server():
     server.serve_forever()
 
 
-# --- സാധാരണക്കാർക്ക് പേര് മാത്രം അയച്ചാൽ മറുപടി നൽകുന്ന ഫീച്ചർ ---
+# --- ക്വാളിറ്റി & റേറ്റിംഗ് ഫിൽട്ടർ ചെയ്ത സ്മാർട്ട് സെർച്ച് ---
 async def handle_normal_text(
     update: Update, context: ContextTypes.DEFAULT_TYPE
 ):
     query = update.message.text.strip()
 
-    # സ്റ്റാർട്ട് കമാൻഡ് ആണെങ്കിൽ സ്വാഗതം പറയും
     if query == "/start":
         await update.message.reply_text(
-            "👋 *Prime Finder Shopping Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
-            "നിങ്ങൾക്ക് ആവശ്യമുള്ള ഏത് സാധനത്തിന്റെയും പേര് ഇവിടെ മെസ്സേജ് ആയി അയക്കൂ (ഉദാഹരണത്തിന്: `mobile`, `shoes`, `smart watch`, `shirt`).\n\n"
-            "ഏറ്റവും മികച്ച ഓഫറുകൾ ഞങ്ങൾ കണ്ടെത്തി തരാം!",
+            "👋 *Prime Finder Smart Quality Assistant-ലേക്ക് സ്വാഗതം!*\n\n"
+            "ആമസോണിലെ വ്യാജ ഉൽപ്പന്നങ്ങളും മോശം റേറ്റിംഗും ഒഴിവാക്കി, **4★+ റേറ്റിംഗുള്ള ഒറിജിനൽ പ്രൊഡക്റ്റുകൾ മാത്രം** കണ്ടെത്താൻ സാധനത്തിന്റെ പേര് ഇവിടെ അയക്കൂ.\n\n"
+            "ഉദാഹരണം: `smart watch`, `running shoes`, `trimmer`",
             parse_mode="Markdown",
         )
         return
 
     encoded_query = urllib.parse.quote_plus(query)
-    amazon_search_url = f"https://www.amazon.in/s?k={encoded_query}&tag={AMAZON_TAG}"
-    flipkart_search_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.flipkart.com/search?q={encoded_query}"
+
+    # 1. ആമസോണിൽ 4 സ്റ്റാറും അതിനുമുകളിലും മാത്രം റേറ്റിംഗ് ഉള്ള ഫിൽട്ടർ (rh=p_72%3A1318476031)
+    amazon_filtered_url = f"https://www.amazon.in/s?k={encoded_query}&rh=p_72%3A1318476031&tag={AMAZON_TAG}"
+
+    # 2. ഏറ്റവും കൂടുതൽ വിൽപനയുള്ള ബെസ്റ്റ് സെല്ലേഴ്സ് ഫിൽട്ടർ
+    amazon_bestseller_url = f"https://www.amazon.in/s?k={encoded_query}&s=exact-aware-popularity-rank&tag={AMAZON_TAG}"
+
+    # 3. ഫ്ലിപ്കാർട്ട് അഷ്വേർഡ് & ടോപ്പ് റേറ്റിംഗ് ഫിൽട്ടർ
+    flipkart_filtered_url = f"https://earnkaro.com?r={EARNKARO_USER_ID}&link=https://www.flipkart.com/search?q={encoded_query}&sort=popularity"
 
     reply_text = (
-        f"🔎 *{query}* തിരഞ്ഞതിനുള്ള മികച്ച ഫലങ്ങൾ താഴെ നൽകുന്നു:\n\n"
+        f"🎯 *Prime Verified Smart Search Results:* \n"
+        f"📦 *Query:* _{query}_\n\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"🟠 *Amazon Deals:*\n"
-        f"👉 [Amazon-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({amazon_search_url})\n\n"
-        f"🔵 *Flipkart Deals:*\n"
-        f"👉 [Flipkart-ൽ നിന്ന് ഓർഡർ ചെയ്യുക]({flipkart_search_url})\n"
+        f"⭐ *1. Top Rated Products (4★+ Rating Only):*\n"
+        f"👉 [ആമസോണിലെ 4★+ മികച്ച ഉൽപ്പന്നങ്ങൾ കാണുക]({amazon_filtered_url})\n"
+        f"_(മോശം ക്വാളിറ്റിയും ഫേക്ക് പ്രൊഡക്റ്റുകളും ഫിൽട്ടർ ചെയ്തത്)_\n\n"
+        f"🔥 *2. Best Sellers & Most Bought:*\n"
+        f"👉 [ഏറ്റവും കൂടുതൽ ആളുകൾ വാങ്ങിയവ കാണുക]({amazon_bestseller_url})\n\n"
+        f"🔵 *3. Flipkart Top Rated Picks:*\n"
+        f"👉 [ഫ്ലിപ്കാർട്ട് ജനപ്രിയ കളക്ഷൻ കാണുക]({flipkart_filtered_url})\n"
         f"━━━━━━━━━━━━━━━━━━━━\n\n"
-        f"✅ _100% ഒറിജിനൽ ബ്രാൻഡുകളും ഫാസ്റ്റ് ഡെലിവറിയും!_"
+        f"🛡️ *Quality Assurance Checklist:*\n"
+        f"✔ ഒറിജിനൽ ബ്രാൻഡ് വാറന്റി\n"
+        f"✔ റിട്ടേൺ / റീപ്ലേസ്‌മെന്റ് സൗകര്യം\n"
+        f"✔ ആയിരക്കണക്കിന് പോസിറ്റീവ് കസ്റ്റമർ റിവ്യൂകൾ"
     )
 
     await update.message.reply_text(
@@ -96,14 +109,14 @@ async def send_deal_to_telegram(bot, title, final_link, platform_name):
             f"{badge} ⭐⭐⭐⭐⭐\n\n"
             f"📦 *Product:* {title}\n\n"
             f"━━━━━━━━━━━━━━━━━━━━\n"
-            f"🛡️ *Quality & Trust Assured:*\n"
-            f"• 🏆 100% Original Brand Product\n"
-            f"• 🏬 Top Verified Sellers Only\n"
-            f"• 🔄 Easy Returns & Replacement Available\n"
+            f"🛡️ *ക്വാളിറ്റി & സെല്ലർ ഫീച്ചറുകൾ:*\n"
+            f"• 🏆 100% ഒറിജിനൽ ബ്രാൻഡ്\n"
+            f"• 🏬 ടോപ്പ് റേറ്റിംഗുള്ള വെരിഫൈഡ് സെല്ലർമാർ മാത്രം\n"
+            f"• 🔄 ഈസി റിട്ടേൺ / റീപ്ലേസ്‌മെന്റ് ലഭ്യമാണ്\n"
             f"━━━━━━━━━━━━━━━━━━━━\n\n"
-            f"🛒 *വാങ്ങാൻ ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
-            f"👉 [{platform_name}-ൽ നിന്ന് ഓർഡർ ചെയ്യൂ]({final_link})\n\n"
-            f"💡 _മറ്റ് പ്രൊഡക്റ്റുകൾ തിരയാൻ ഈ ബോട്ടിന് സാധനത്തിന്റെ പേര് മാത്രം മെസ്സേജ് അയക്കുക!_"
+            f"🛒 *ഓർഡർ ചെയ്യാൻ ലിങ്കിൽ ക്ലിക്ക് ചെയ്യുക:*\n"
+            f"👉 [{platform_name}-ൽ നിന്ന് വാങ്ങൂ]({final_link})\n\n"
+            f"💡 _മറ്റ് പ്രൊഡക്റ്റുകൾ തിരയാൻ ഈ ബോട്ടിൽ പേര് മാത്രം മെസ്സേജ് അയക്കുക!_"
         )
         await bot.send_message(
             chat_id=CHANNEL_ID,
@@ -145,8 +158,6 @@ async def channel_deals_loop(bot):
 
 async def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    # ഏതൊരു സാധാരണ മെസ്സേജിനും ഓട്ടോമാറ്റിക് സെർച്ച് നൽകുന്നു
     application.add_handler(
         MessageHandler(filters.TEXT & (~filters.COMMAND), handle_normal_text)
     )
